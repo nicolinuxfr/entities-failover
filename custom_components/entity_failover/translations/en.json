@@ -3,9 +3,10 @@
     "step": {
       "user": {
         "title": "Create failover entity",
+        "description": "Select at least two source entities from the same domain. Their order is the failover priority.",
         "data": {
           "name": "Synthetic device name",
-          "domain": "Domain"
+          "sources": "Ordered source entities"
         }
       },
       "sources": {
@@ -36,6 +37,7 @@
     },
     "error": {
       "too_few_sources": "Select at least two source entities.",
+      "unsupported_domain": "This domain is not supported.",
       "duplicate_sources": "The same source cannot be selected more than once.",
       "mixed_domains": "All sources must belong to the selected domain.",
       "self_reference": "The failover entity cannot use itself as a source.",
@@ -95,4 +97,3 @@
     }
   }
 }
-

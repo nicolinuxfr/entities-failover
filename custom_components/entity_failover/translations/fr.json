@@ -3,9 +3,10 @@
     "step": {
       "user": {
         "title": "Créer une entité de secours",
+        "description": "Sélectionnez au moins deux entités sources du même domaine. L'ordre définit la priorité.",
         "data": {
           "name": "Nom de l'appareil synthétique",
-          "domain": "Domaine"
+          "sources": "Entités sources ordonnées"
         }
       },
       "sources": {
@@ -36,6 +37,7 @@
     },
     "error": {
       "too_few_sources": "Sélectionnez au moins deux entités sources.",
+      "unsupported_domain": "Ce domaine n'est pas pris en charge.",
       "duplicate_sources": "Une source ne peut pas être sélectionnée plusieurs fois.",
       "mixed_domains": "Toutes les sources doivent appartenir au domaine sélectionné.",
       "self_reference": "L'entité de secours ne peut pas s'utiliser elle-même comme source.",
@@ -95,4 +97,3 @@
     }
   }
 }
-

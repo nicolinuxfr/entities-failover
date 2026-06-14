@@ -6,6 +6,8 @@ import pytest
 
 from custom_components.entity_failover.config_flow import (
     EntityFailoverConfigFlow,
+    _sources_schema,
+    _user_schema,
     _validate_sources,
 )
 from custom_components.entity_failover.const import CONF_DOMAIN, CONF_SOURCES
@@ -39,6 +41,25 @@ async def test_validate_refuses_mixed_domains(hass) -> None:
 
 
 @pytest.mark.asyncio
+async def test_validate_refuses_unsupported_domain(hass) -> None:
+    """All sources must use a supported domain."""
+
+    assert (
+        _validate_sources(
+            hass, "automation", ["automation.one", "automation.two"], None
+        )
+        == "unsupported_domain"
+    )
+
+
+def test_source_selectors_default_to_empty_lists() -> None:
+    """Multiple entity selectors must never receive None as a default."""
+
+    assert _user_schema()({})[CONF_SOURCES] == []
+    assert _sources_schema("switch")({})[CONF_SOURCES] == []
+
+
+@pytest.mark.asyncio
 async def test_config_flow_creates_entry(hass) -> None:
     """The UI flow creates a config entry."""
 
@@ -53,11 +74,11 @@ async def test_config_flow_creates_entry(hass) -> None:
     assert result["type"] == "form"
 
     result = await flow.async_step_user(
-        {"name": "Kitchen Switch", CONF_DOMAIN: "switch"},
+        {"name": "Kitchen Switch", CONF_SOURCES: ["switch.one", "switch.two"]},
     )
-    result = await flow.async_step_sources(
-        {CONF_SOURCES: ["switch.one", "switch.two"]},
-    )
+    assert result["type"] == "form"
+    assert result["step_id"] == "general"
+
     result = await flow.async_step_general(
         {
             "availability_strategy": "simple",
@@ -76,3 +97,4 @@ async def test_config_flow_creates_entry(hass) -> None:
 
     assert result["type"] == "create_entry"
     assert result["title"] == "Kitchen Switch"
+    assert result["data"][CONF_DOMAIN] == "switch"

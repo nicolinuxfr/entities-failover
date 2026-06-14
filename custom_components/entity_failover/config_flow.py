@@ -63,12 +63,19 @@ class EntityFailoverConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self,
         user_input: dict[str, Any] | None = None,
     ) -> config_entries.ConfigFlowResult:
-        """Collect name and domain."""
+        """Collect the synthetic entity name and ordered source entity ids."""
 
         errors: dict[str, str] = {}
         if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_sources()
+            sources = normalize_sources(user_input[CONF_SOURCES])
+            domain = entity_domain(sources[0]) if sources else ""
+            error = _validate_sources(self.hass, domain, sources, None)
+            if error is None:
+                self._data.update(user_input)
+                self._data[CONF_DOMAIN] = domain
+                self._data[CONF_SOURCES] = sources
+                return await self.async_step_general()
+            errors[CONF_SOURCES] = error
 
         return self.async_show_form(
             step_id="user",
@@ -236,13 +243,15 @@ def _user_schema(defaults: Mapping[str, Any] | None = None) -> vol.Schema:
         {
             vol.Required(CONF_NAME, default=defaults.get(CONF_NAME, "")): str,
             vol.Required(
-                CONF_DOMAIN,
-                default=defaults.get(CONF_DOMAIN, "switch"),
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=SUPPORTED_DOMAINS,
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                    sort=True,
+                CONF_SOURCES,
+                default=list(defaults.get(CONF_SOURCES, [])),
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(
+                    filter=selector.EntityFilterSelectorConfig(
+                        domain=SUPPORTED_DOMAINS
+                    ),
+                    multiple=True,
+                    reorder=True,
                 )
             ),
         }
@@ -255,7 +264,9 @@ def _sources_schema(domain: str, default: list[str] | None = None) -> vol.Schema
     entity_filter = selector.EntityFilterSelectorConfig(domain=domain)
     return vol.Schema(
         {
-            vol.Required(CONF_SOURCES, default=default): selector.EntitySelector(
+            vol.Required(
+                CONF_SOURCES, default=list(default or [])
+            ): selector.EntitySelector(
                 selector.EntitySelectorConfig(
                     filter=entity_filter,
                     multiple=True,
@@ -369,6 +380,8 @@ def _validate_sources(  # noqa: PLR0911
 
     if len(sources) < 2:
         return "too_few_sources"
+    if domain not in SUPPORTED_DOMAINS:
+        return "unsupported_domain"
     if len(set(sources)) != len(sources):
         return "duplicate_sources"
     if any(entity_domain(source) != domain for source in sources):
