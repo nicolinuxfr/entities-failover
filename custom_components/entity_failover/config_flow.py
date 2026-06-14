@@ -7,7 +7,7 @@ from typing import Any
 from uuid import uuid4
 
 import voluptuous as vol
-from homeassistant import config_entries
+from homeassistant import config_entries, data_entry_flow
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
@@ -39,16 +39,13 @@ from .const import (
 )
 from .helpers import entity_domain, normalize_sources
 
+ADVANCED_SECTION = "advanced"
+
 
 class EntityFailoverConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle an Entity Failover config flow."""
 
     VERSION = 1
-
-    def __init__(self) -> None:
-        """Initialize flow state."""
-
-        self._data: dict[str, Any] = {}
 
     @staticmethod
     @callback
@@ -63,7 +60,7 @@ class EntityFailoverConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self,
         user_input: dict[str, Any] | None = None,
     ) -> config_entries.ConfigFlowResult:
-        """Collect the synthetic entity name and ordered source entity ids."""
+        """Collect all settings and create the failover entity."""
 
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -71,85 +68,20 @@ class EntityFailoverConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             domain = entity_domain(sources[0]) if sources else ""
             error = _validate_sources(self.hass, domain, sources, None)
             if error is None:
-                self._data.update(user_input)
-                self._data[CONF_DOMAIN] = domain
-                self._data[CONF_SOURCES] = sources
-                return await self.async_step_general()
+                data = _entry_data_from_user_input(user_input, domain, sources)
+                await self.async_set_unique_id(str(uuid4()))
+                self._abort_if_unique_id_configured()
+                return self.async_create_entry(
+                    title=data[CONF_NAME],
+                    data=data,
+                )
             errors[CONF_SOURCES] = error
 
         return self.async_show_form(
             step_id="user",
-            data_schema=_user_schema(),
+            data_schema=_user_schema(user_input),
             errors=errors,
-        )
-
-    async def async_step_sources(
-        self,
-        user_input: dict[str, Any] | None = None,
-    ) -> config_entries.ConfigFlowResult:
-        """Collect ordered source entity ids."""
-
-        errors: dict[str, str] = {}
-        domain = self._data[CONF_DOMAIN]
-        if user_input is not None:
-            sources = normalize_sources(user_input[CONF_SOURCES])
-            error = _validate_sources(self.hass, domain, sources, None)
-            if error is None:
-                self._data[CONF_SOURCES] = sources
-                return await self.async_step_general()
-            errors[CONF_SOURCES] = error
-
-        return self.async_show_form(
-            step_id="sources",
-            data_schema=_sources_schema(domain),
-            errors=errors,
-        )
-
-    async def async_step_general(
-        self,
-        user_input: dict[str, Any] | None = None,
-    ) -> config_entries.ConfigFlowResult:
-        """Collect general behavior settings."""
-
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_advanced()
-
-        return self.async_show_form(
-            step_id="general",
-            data_schema=_general_schema(),
-        )
-
-    async def async_step_advanced(
-        self,
-        user_input: dict[str, Any] | None = None,
-    ) -> config_entries.ConfigFlowResult:
-        """Collect advanced command settings and create the entry."""
-
-        if user_input is not None:
-            self._data.update(user_input)
-            unique_id = str(uuid4())
-            await self.async_set_unique_id(unique_id)
-            self._abort_if_unique_id_configured()
-            return self.async_create_entry(
-                title=self._data[CONF_NAME],
-                data={
-                    CONF_NAME: self._data[CONF_NAME],
-                    CONF_DOMAIN: self._data[CONF_DOMAIN],
-                    CONF_SOURCES: self._data[CONF_SOURCES],
-                    CONF_AVAILABILITY_STRATEGY: self._data[CONF_AVAILABILITY_STRATEGY],
-                    CONF_COMMAND_VALIDATION: self._data[CONF_COMMAND_VALIDATION],
-                    CONF_CONFIRMATION_TIMEOUT: self._data[CONF_CONFIRMATION_TIMEOUT],
-                    CONF_FAILURE_COOLDOWN: self._data[CONF_FAILURE_COOLDOWN],
-                    CONF_RECOVERY_STABILITY: self._data[CONF_RECOVERY_STABILITY],
-                    CONF_MAX_ATTEMPTS: self._data[CONF_MAX_ATTEMPTS],
-                    CONF_FEATURE_POLICY: self._data[CONF_FEATURE_POLICY],
-                },
-            )
-
-        return self.async_show_form(
-            step_id="advanced",
-            data_schema=_advanced_schema(),
+            last_step=True,
         )
 
 
@@ -166,15 +98,7 @@ class EntityFailoverOptionsFlow(config_entries.OptionsFlow):
         self,
         user_input: dict[str, Any] | None = None,
     ) -> config_entries.ConfigFlowResult:
-        """Start options flow."""
-
-        return await self.async_step_sources(user_input)
-
-    async def async_step_sources(
-        self,
-        user_input: dict[str, Any] | None = None,
-    ) -> config_entries.ConfigFlowResult:
-        """Update ordered sources."""
+        """Update all options in one step."""
 
         errors: dict[str, str] = {}
         domain = self._data[CONF_DOMAIN]
@@ -182,66 +106,55 @@ class EntityFailoverOptionsFlow(config_entries.OptionsFlow):
             sources = normalize_sources(user_input[CONF_SOURCES])
             error = _validate_sources(self.hass, domain, sources, self._entry.entry_id)
             if error is None:
-                self._data[CONF_SOURCES] = sources
-                return await self.async_step_general()
+                return self.async_create_entry(
+                    title="",
+                    data=_options_data_from_user_input(user_input, sources),
+                )
             errors[CONF_SOURCES] = error
 
         return self.async_show_form(
-            step_id="sources",
-            data_schema=_sources_schema(domain, self._data[CONF_SOURCES]),
+            step_id="init",
+            data_schema=_options_schema(self._schema_defaults(user_input)),
             errors=errors,
+            last_step=True,
         )
 
-    async def async_step_general(
+    def _schema_defaults(
         self,
-        user_input: dict[str, Any] | None = None,
-    ) -> config_entries.ConfigFlowResult:
-        """Update general options."""
+        user_input: Mapping[str, Any] | None,
+    ) -> dict[str, Any]:
+        """Return defaults for the one-step options form."""
 
-        if user_input is not None:
-            self._data.update(user_input)
-            return await self.async_step_advanced()
-
-        return self.async_show_form(
-            step_id="general",
-            data_schema=_general_schema(self._data),
-        )
-
-    async def async_step_advanced(
-        self,
-        user_input: dict[str, Any] | None = None,
-    ) -> config_entries.ConfigFlowResult:
-        """Update advanced options."""
-
-        if user_input is not None:
-            self._data.update(user_input)
-            return self.async_create_entry(
-                title="",
-                data={
-                    CONF_SOURCES: self._data[CONF_SOURCES],
-                    CONF_AVAILABILITY_STRATEGY: self._data[CONF_AVAILABILITY_STRATEGY],
-                    CONF_COMMAND_VALIDATION: self._data[CONF_COMMAND_VALIDATION],
-                    CONF_CONFIRMATION_TIMEOUT: self._data[CONF_CONFIRMATION_TIMEOUT],
-                    CONF_FAILURE_COOLDOWN: self._data[CONF_FAILURE_COOLDOWN],
-                    CONF_RECOVERY_STABILITY: self._data[CONF_RECOVERY_STABILITY],
-                    CONF_MAX_ATTEMPTS: self._data[CONF_MAX_ATTEMPTS],
-                    CONF_FEATURE_POLICY: self._data[CONF_FEATURE_POLICY],
-                },
-            )
-
-        return self.async_show_form(
-            step_id="advanced",
-            data_schema=_advanced_schema(self._data),
-        )
+        if user_input is None:
+            return self._data
+        return {**self._data, **user_input}
 
 
 def _user_schema(defaults: Mapping[str, Any] | None = None) -> vol.Schema:
-    """Return the first-step schema."""
+    """Return the one-step config schema."""
+
+    return _combined_schema(defaults, include_name=True)
+
+
+def _options_schema(defaults: Mapping[str, Any] | None = None) -> vol.Schema:
+    """Return the one-step options schema."""
+
+    return _combined_schema(defaults, include_name=False)
+
+
+def _combined_schema(
+    defaults: Mapping[str, Any] | None = None,
+    *,
+    include_name: bool,
+) -> vol.Schema:
+    """Return a one-step config or options schema."""
 
     defaults = defaults or {}
-    return vol.Schema(
+    schema: dict[Any, Any] = {}
+    if include_name:
+        schema[vol.Required(CONF_NAME, default=defaults.get(CONF_NAME, ""))] = str
+    schema.update(
         {
-            vol.Required(CONF_NAME, default=defaults.get(CONF_NAME, "")): str,
             vol.Required(
                 CONF_SOURCES,
                 default=list(defaults.get(CONF_SOURCES, [])),
@@ -256,118 +169,187 @@ def _user_schema(defaults: Mapping[str, Any] | None = None) -> vol.Schema:
             ),
         }
     )
+    schema.update(_general_schema_fields(defaults))
+    schema[
+        vol.Optional(
+            ADVANCED_SECTION,
+            default=_advanced_defaults(defaults),
+        )
+    ] = data_entry_flow.section(
+        vol.Schema(_advanced_schema_fields(_advanced_defaults(defaults))),
+        {"collapsed": True},
+    )
+    return vol.Schema(schema)
 
 
-def _sources_schema(domain: str, default: list[str] | None = None) -> vol.Schema:
-    """Return the sources schema."""
+def _general_schema_fields(
+    defaults: Mapping[str, Any] | None = None,
+) -> dict[Any, Any]:
+    """Return general settings schema fields."""
 
-    entity_filter = selector.EntityFilterSelectorConfig(domain=domain)
-    return vol.Schema(
-        {
-            vol.Required(
-                CONF_SOURCES, default=list(default or [])
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(
-                    filter=entity_filter,
-                    multiple=True,
-                    reorder=True,
-                )
+    defaults = defaults or {}
+    return {
+        vol.Required(
+            CONF_AVAILABILITY_STRATEGY,
+            default=defaults.get(
+                CONF_AVAILABILITY_STRATEGY, DEFAULT_AVAILABILITY_STRATEGY
+            ),
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(options=AVAILABILITY_STRATEGIES)
+        ),
+        vol.Required(
+            CONF_RECOVERY_STABILITY,
+            default=defaults.get(CONF_RECOVERY_STABILITY, DEFAULT_RECOVERY_STABILITY),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=0,
+                max=3600,
+                step=1,
+                mode=selector.NumberSelectorMode.BOX,
+                unit_of_measurement="s",
             )
-        }
-    )
+        ),
+        vol.Required(
+            CONF_FAILURE_COOLDOWN,
+            default=defaults.get(CONF_FAILURE_COOLDOWN, DEFAULT_FAILURE_COOLDOWN),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=0,
+                max=3600,
+                step=1,
+                mode=selector.NumberSelectorMode.BOX,
+                unit_of_measurement="s",
+            )
+        ),
+        vol.Required(
+            CONF_FEATURE_POLICY,
+            default=defaults.get(CONF_FEATURE_POLICY, DEFAULT_FEATURE_POLICY),
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(options=FEATURE_POLICIES)
+        ),
+    }
 
 
-def _general_schema(defaults: Mapping[str, Any] | None = None) -> vol.Schema:
-    """Return general settings schema."""
-
-    defaults = defaults or {}
-    return vol.Schema(
-        {
-            vol.Required(
-                CONF_AVAILABILITY_STRATEGY,
-                default=defaults.get(
-                    CONF_AVAILABILITY_STRATEGY, DEFAULT_AVAILABILITY_STRATEGY
-                ),
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(options=AVAILABILITY_STRATEGIES)
-            ),
-            vol.Required(
-                CONF_RECOVERY_STABILITY,
-                default=defaults.get(
-                    CONF_RECOVERY_STABILITY, DEFAULT_RECOVERY_STABILITY
-                ),
-            ): selector.NumberSelector(
-                selector.NumberSelectorConfig(
-                    min=0,
-                    max=3600,
-                    step=1,
-                    mode=selector.NumberSelectorMode.BOX,
-                    unit_of_measurement="s",
-                )
-            ),
-            vol.Required(
-                CONF_FAILURE_COOLDOWN,
-                default=defaults.get(CONF_FAILURE_COOLDOWN, DEFAULT_FAILURE_COOLDOWN),
-            ): selector.NumberSelector(
-                selector.NumberSelectorConfig(
-                    min=0,
-                    max=3600,
-                    step=1,
-                    mode=selector.NumberSelectorMode.BOX,
-                    unit_of_measurement="s",
-                )
-            ),
-            vol.Required(
-                CONF_FEATURE_POLICY,
-                default=defaults.get(CONF_FEATURE_POLICY, DEFAULT_FEATURE_POLICY),
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(options=FEATURE_POLICIES)
-            ),
-        }
-    )
-
-
-def _advanced_schema(defaults: Mapping[str, Any] | None = None) -> vol.Schema:
-    """Return advanced settings schema."""
+def _advanced_schema_fields(
+    defaults: Mapping[str, Any] | None = None,
+) -> dict[Any, Any]:
+    """Return advanced settings schema fields."""
 
     defaults = defaults or {}
-    return vol.Schema(
-        {
-            vol.Required(
-                CONF_COMMAND_VALIDATION,
-                default=defaults.get(
-                    CONF_COMMAND_VALIDATION, DEFAULT_COMMAND_VALIDATION
-                ),
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(options=COMMAND_VALIDATION_MODES)
+    return {
+        vol.Required(
+            CONF_COMMAND_VALIDATION,
+            default=defaults.get(CONF_COMMAND_VALIDATION, DEFAULT_COMMAND_VALIDATION),
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(options=COMMAND_VALIDATION_MODES)
+        ),
+        vol.Required(
+            CONF_CONFIRMATION_TIMEOUT,
+            default=defaults.get(
+                CONF_CONFIRMATION_TIMEOUT, DEFAULT_CONFIRMATION_TIMEOUT
             ),
-            vol.Required(
-                CONF_CONFIRMATION_TIMEOUT,
-                default=defaults.get(
-                    CONF_CONFIRMATION_TIMEOUT, DEFAULT_CONFIRMATION_TIMEOUT
-                ),
-            ): selector.NumberSelector(
-                selector.NumberSelectorConfig(
-                    min=1,
-                    max=120,
-                    step=1,
-                    mode=selector.NumberSelectorMode.BOX,
-                    unit_of_measurement="s",
-                )
-            ),
-            vol.Required(
-                CONF_MAX_ATTEMPTS,
-                default=defaults.get(CONF_MAX_ATTEMPTS, DEFAULT_MAX_ATTEMPTS),
-            ): selector.NumberSelector(
-                selector.NumberSelectorConfig(
-                    min=1,
-                    max=10,
-                    step=1,
-                    mode=selector.NumberSelectorMode.BOX,
-                )
-            ),
-        }
-    )
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=1,
+                max=120,
+                step=1,
+                mode=selector.NumberSelectorMode.BOX,
+                unit_of_measurement="s",
+            )
+        ),
+        vol.Required(
+            CONF_MAX_ATTEMPTS,
+            default=defaults.get(CONF_MAX_ATTEMPTS, DEFAULT_MAX_ATTEMPTS),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=1,
+                max=10,
+                step=1,
+                mode=selector.NumberSelectorMode.BOX,
+            )
+        ),
+    }
+
+
+def _advanced_defaults(defaults: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Return advanced section defaults."""
+
+    defaults = defaults or {}
+    section_defaults = defaults.get(ADVANCED_SECTION)
+    if isinstance(section_defaults, Mapping):
+        defaults = {**defaults, **section_defaults}
+    return {
+        CONF_COMMAND_VALIDATION: defaults.get(
+            CONF_COMMAND_VALIDATION, DEFAULT_COMMAND_VALIDATION
+        ),
+        CONF_CONFIRMATION_TIMEOUT: defaults.get(
+            CONF_CONFIRMATION_TIMEOUT, DEFAULT_CONFIRMATION_TIMEOUT
+        ),
+        CONF_MAX_ATTEMPTS: defaults.get(CONF_MAX_ATTEMPTS, DEFAULT_MAX_ATTEMPTS),
+    }
+
+
+def _advanced_user_input(user_input: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Return advanced settings from flattened or sectioned user input."""
+
+    section_input = user_input.get(ADVANCED_SECTION)
+    if isinstance(section_input, Mapping):
+        return section_input
+    return user_input
+
+
+def _entry_data_from_user_input(
+    user_input: Mapping[str, Any],
+    domain: str,
+    sources: list[str],
+) -> dict[str, Any]:
+    """Return config entry data from form input."""
+
+    return {
+        CONF_NAME: user_input[CONF_NAME],
+        CONF_DOMAIN: domain,
+        CONF_SOURCES: sources,
+        **_behavior_data_from_user_input(user_input),
+    }
+
+
+def _options_data_from_user_input(
+    user_input: Mapping[str, Any],
+    sources: list[str],
+) -> dict[str, Any]:
+    """Return options entry data from form input."""
+
+    return {
+        CONF_SOURCES: sources,
+        **_behavior_data_from_user_input(user_input),
+    }
+
+
+def _behavior_data_from_user_input(user_input: Mapping[str, Any]) -> dict[str, Any]:
+    """Return behavior settings from form input."""
+
+    advanced = _advanced_user_input(user_input)
+    return {
+        CONF_AVAILABILITY_STRATEGY: user_input.get(
+            CONF_AVAILABILITY_STRATEGY, DEFAULT_AVAILABILITY_STRATEGY
+        ),
+        CONF_COMMAND_VALIDATION: advanced.get(
+            CONF_COMMAND_VALIDATION, DEFAULT_COMMAND_VALIDATION
+        ),
+        CONF_CONFIRMATION_TIMEOUT: advanced.get(
+            CONF_CONFIRMATION_TIMEOUT, DEFAULT_CONFIRMATION_TIMEOUT
+        ),
+        CONF_FAILURE_COOLDOWN: user_input.get(
+            CONF_FAILURE_COOLDOWN, DEFAULT_FAILURE_COOLDOWN
+        ),
+        CONF_RECOVERY_STABILITY: user_input.get(
+            CONF_RECOVERY_STABILITY, DEFAULT_RECOVERY_STABILITY
+        ),
+        CONF_MAX_ATTEMPTS: advanced.get(CONF_MAX_ATTEMPTS, DEFAULT_MAX_ATTEMPTS),
+        CONF_FEATURE_POLICY: user_input.get(
+            CONF_FEATURE_POLICY, DEFAULT_FEATURE_POLICY
+        ),
+    }
 
 
 def _validate_sources(  # noqa: PLR0911

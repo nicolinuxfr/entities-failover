@@ -6,29 +6,12 @@
         "description": "Sélectionnez au moins deux entités sources du même domaine. L'ordre définit la priorité.",
         "data": {
           "name": "Nom de l'appareil synthétique",
-          "sources": "Entités sources ordonnées"
-        }
-      },
-      "sources": {
-        "title": "Sélection des sources",
-        "description": "Sélectionnez au moins deux entités sources. L'ordre définit la priorité.",
-        "data": {
-          "sources": "Entités sources ordonnées"
-        }
-      },
-      "general": {
-        "title": "Comportement de bascule",
-        "data": {
+          "sources": "Entités sources ordonnées",
           "availability_strategy": "Stratégie de disponibilité",
           "recovery_stability": "Délai de stabilité avant retour vers une source prioritaire",
           "failure_cooldown": "Durée d'exclusion temporaire après échec",
-          "feature_policy": "Politique des fonctionnalités prises en charge"
-        }
-      },
-      "advanced": {
-        "title": "Validation avancée des commandes",
-        "description": "La confirmation par état est expérimentale et ne peut confirmer que ce que l'intégration source publie.",
-        "data": {
+          "feature_policy": "Politique des fonctionnalités prises en charge",
+          "advanced": "Paramètres avancés",
           "command_validation": "Validation des commandes",
           "confirmation_timeout": "Délai maximal de confirmation",
           "max_attempts": "Nombre maximal de tentatives"
@@ -49,26 +32,16 @@
   },
   "options": {
     "step": {
-      "sources": {
-        "title": "Modifier les sources",
-        "description": "Réordonnez les sources pour changer la priorité.",
+      "init": {
+        "title": "Modifier l'entité de secours",
+        "description": "Modifiez les sources et le comportement de bascule.",
         "data": {
-          "sources": "Entités sources ordonnées"
-        }
-      },
-      "general": {
-        "title": "Modifier le comportement de bascule",
-        "data": {
+          "sources": "Entités sources ordonnées",
           "availability_strategy": "Stratégie de disponibilité",
           "recovery_stability": "Délai de stabilité avant retour vers une source prioritaire",
           "failure_cooldown": "Durée d'exclusion temporaire après échec",
-          "feature_policy": "Politique des fonctionnalités prises en charge"
-        }
-      },
-      "advanced": {
-        "title": "Modifier la validation des commandes",
-        "description": "La confirmation par état est expérimentale et ne peut confirmer que ce que l'intégration source publie.",
-        "data": {
+          "feature_policy": "Politique des fonctionnalités prises en charge",
+          "advanced": "Paramètres avancés",
           "command_validation": "Validation des commandes",
           "confirmation_timeout": "Délai maximal de confirmation",
           "max_attempts": "Nombre maximal de tentatives"

@@ -6,29 +6,12 @@
         "description": "Select at least two source entities from the same domain. Their order is the failover priority.",
         "data": {
           "name": "Synthetic device name",
-          "sources": "Ordered source entities"
-        }
-      },
-      "sources": {
-        "title": "Select sources",
-        "description": "Select at least two source entities. Their order is the failover priority.",
-        "data": {
-          "sources": "Ordered source entities"
-        }
-      },
-      "general": {
-        "title": "Failover behavior",
-        "data": {
+          "sources": "Ordered source entities",
           "availability_strategy": "Availability strategy",
           "recovery_stability": "Stability delay before returning to a higher-priority source",
           "failure_cooldown": "Temporary exclusion duration after a failure",
-          "feature_policy": "Supported features policy"
-        }
-      },
-      "advanced": {
-        "title": "Advanced command validation",
-        "description": "State confirmation is experimental and can only confirm what the source integration publishes.",
-        "data": {
+          "feature_policy": "Supported features policy",
+          "advanced": "Advanced settings",
           "command_validation": "Command validation",
           "confirmation_timeout": "Maximum confirmation delay",
           "max_attempts": "Maximum attempts"
@@ -49,26 +32,16 @@
   },
   "options": {
     "step": {
-      "sources": {
-        "title": "Update sources",
-        "description": "Reorder sources to change priority.",
+      "init": {
+        "title": "Update failover entity",
+        "description": "Update sources and failover behavior.",
         "data": {
-          "sources": "Ordered source entities"
-        }
-      },
-      "general": {
-        "title": "Update failover behavior",
-        "data": {
+          "sources": "Ordered source entities",
           "availability_strategy": "Availability strategy",
           "recovery_stability": "Stability delay before returning to a higher-priority source",
           "failure_cooldown": "Temporary exclusion duration after a failure",
-          "feature_policy": "Supported features policy"
-        }
-      },
-      "advanced": {
-        "title": "Update command validation",
-        "description": "State confirmation is experimental and can only confirm what the source integration publishes.",
-        "data": {
+          "feature_policy": "Supported features policy",
+          "advanced": "Advanced settings",
           "command_validation": "Command validation",
           "confirmation_timeout": "Maximum confirmation delay",
           "max_attempts": "Maximum attempts"
