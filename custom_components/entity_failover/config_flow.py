@@ -35,6 +35,8 @@ from .const import (
     DEFAULT_RECOVERY_STABILITY,
     DOMAIN,
     FEATURE_POLICIES,
+    NAME,
+    SUBENTRY_TYPE_FAILOVER,
     SUPPORTED_DOMAINS,
 )
 from .helpers import entity_domain, normalize_sources
@@ -45,35 +47,54 @@ ADVANCED_SECTION = "advanced"
 class EntityFailoverConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle an Entity Failover config flow."""
 
-    VERSION = 1
+    VERSION = 2
 
-    @staticmethod
+    @classmethod
     @callback
-    def async_get_options_flow(
+    def async_get_supported_subentry_types(
+        cls,
         config_entry: config_entries.ConfigEntry,
-    ) -> EntityFailoverOptionsFlow:
-        """Return the options flow."""
+    ) -> dict[str, type[config_entries.ConfigSubentryFlow]]:
+        """Return subentries supported by this handler."""
 
-        return EntityFailoverOptionsFlow(config_entry)
+        return {SUBENTRY_TYPE_FAILOVER: EntityFailoverSubentryFlow}
 
     async def async_step_user(
         self,
         user_input: dict[str, Any] | None = None,
     ) -> config_entries.ConfigFlowResult:
-        """Collect all settings and create the failover entity."""
+        """Create the service entry."""
+
+        if self._async_current_entries():
+            return self.async_abort(reason="already_configured")
+        await self.async_set_unique_id(DOMAIN)
+        self._abort_if_unique_id_configured()
+        return self.async_create_entry(
+            title=NAME,
+            data={},
+        )
+
+
+class EntityFailoverSubentryFlow(config_entries.ConfigSubentryFlow):
+    """Handle failover entity subentry flows."""
+
+    async def async_step_user(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.SubentryFlowResult:
+        """Create a failover entity subentry."""
 
         errors: dict[str, str] = {}
         if user_input is not None:
             sources = normalize_sources(user_input[CONF_SOURCES])
             domain = entity_domain(sources[0]) if sources else ""
-            error = _validate_sources(self.hass, domain, sources, None)
+            error = _validate_sources(self.hass, domain, sources, self._entry_id)
             if error is None:
-                data = _entry_data_from_user_input(user_input, domain, sources)
-                await self.async_set_unique_id(str(uuid4()))
-                self._abort_if_unique_id_configured()
+                subentry = _subentry_data_from_user_input(user_input, domain, sources)
                 return self.async_create_entry(
-                    title=data[CONF_NAME],
-                    data=data,
+                    title=subentry["title"],
+                    data=subentry["data"],
+                    unique_id=subentry["unique_id"],
                 )
             errors[CONF_SOURCES] = error
 
@@ -84,91 +105,79 @@ class EntityFailoverConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             last_step=True,
         )
 
-
-class EntityFailoverOptionsFlow(config_entries.OptionsFlow):
-    """Handle Entity Failover options."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-
-        self._entry = config_entry
-        self._data: dict[str, Any] = {**config_entry.data, **config_entry.options}
-
-    async def async_step_init(
+    async def async_step_reconfigure(
         self,
         user_input: dict[str, Any] | None = None,
-    ) -> config_entries.ConfigFlowResult:
-        """Update all options in one step."""
+    ) -> config_entries.SubentryFlowResult:
+        """Reconfigure a failover entity subentry."""
 
+        subentry = self._get_reconfigure_subentry()
+        defaults = _subentry_schema_defaults(subentry)
         errors: dict[str, str] = {}
-        domain = self._data[CONF_DOMAIN]
         if user_input is not None:
             sources = normalize_sources(user_input[CONF_SOURCES])
-            error = _validate_sources(self.hass, domain, sources, self._entry.entry_id)
+            domain = entity_domain(sources[0]) if sources else ""
+            error = _validate_sources(
+                self.hass,
+                domain,
+                sources,
+                self._entry_id,
+                subentry.subentry_id,
+            )
             if error is None:
-                return self.async_create_entry(
-                    title="",
-                    data=_options_data_from_user_input(user_input, sources),
+                return self.async_update_reload_and_abort(
+                    self._get_entry(),
+                    subentry,
+                    title=str(user_input[CONF_NAME]),
+                    data=_failover_data_from_user_input(user_input, domain, sources),
+                    reload_even_if_entry_is_unchanged=False,
                 )
             errors[CONF_SOURCES] = error
 
         return self.async_show_form(
-            step_id="init",
-            data_schema=_options_schema(self._schema_defaults(user_input)),
+            step_id="reconfigure",
+            data_schema=_user_schema(_schema_defaults(defaults, user_input)),
             errors=errors,
             last_step=True,
         )
 
-    def _schema_defaults(
-        self,
-        user_input: Mapping[str, Any] | None,
-    ) -> dict[str, Any]:
-        """Return defaults for the one-step options form."""
 
-        if user_input is None:
-            return self._data
-        return {**self._data, **user_input}
+def _schema_defaults(
+    defaults: Mapping[str, Any],
+    user_input: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Return form defaults after an invalid submission."""
+
+    if user_input is None:
+        return dict(defaults)
+    return {**defaults, **user_input}
+
+
+def _subentry_schema_defaults(
+    subentry: config_entries.ConfigSubentry,
+) -> dict[str, Any]:
+    """Return schema defaults from a subentry."""
+
+    return {CONF_NAME: subentry.title, **subentry.data}
 
 
 def _user_schema(defaults: Mapping[str, Any] | None = None) -> vol.Schema:
-    """Return the one-step config schema."""
-
-    return _combined_schema(defaults, include_name=True)
-
-
-def _options_schema(defaults: Mapping[str, Any] | None = None) -> vol.Schema:
-    """Return the one-step options schema."""
-
-    return _combined_schema(defaults, include_name=False)
-
-
-def _combined_schema(
-    defaults: Mapping[str, Any] | None = None,
-    *,
-    include_name: bool,
-) -> vol.Schema:
-    """Return a one-step config or options schema."""
+    """Return the one-step failover entity schema."""
 
     defaults = defaults or {}
-    schema: dict[Any, Any] = {}
-    if include_name:
-        schema[vol.Required(CONF_NAME, default=defaults.get(CONF_NAME, ""))] = str
-    schema.update(
-        {
-            vol.Required(
-                CONF_SOURCES,
-                default=list(defaults.get(CONF_SOURCES, [])),
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(
-                    filter=selector.EntityFilterSelectorConfig(
-                        domain=SUPPORTED_DOMAINS
-                    ),
-                    multiple=True,
-                    reorder=True,
-                )
-            ),
-        }
-    )
+    schema: dict[Any, Any] = {
+        vol.Required(CONF_NAME, default=defaults.get(CONF_NAME, "")): str,
+        vol.Required(
+            CONF_SOURCES,
+            default=list(defaults.get(CONF_SOURCES, [])),
+        ): selector.EntitySelector(
+            selector.EntitySelectorConfig(
+                filter=selector.EntityFilterSelectorConfig(domain=SUPPORTED_DOMAINS),
+                multiple=True,
+                reorder=True,
+            )
+        ),
+    }
     schema.update(_general_schema_fields(defaults))
     schema[
         vol.Optional(
@@ -298,38 +307,33 @@ def _advanced_user_input(user_input: Mapping[str, Any]) -> Mapping[str, Any]:
     return user_input
 
 
-def _entry_data_from_user_input(
+def _subentry_data_from_user_input(
+    user_input: Mapping[str, Any],
+    domain: str,
+    sources: list[str],
+) -> config_entries.ConfigSubentryData:
+    """Return config subentry data from form input."""
+
+    return {
+        "title": str(user_input[CONF_NAME]),
+        "data": _failover_data_from_user_input(user_input, domain, sources),
+        "subentry_type": SUBENTRY_TYPE_FAILOVER,
+        "unique_id": str(uuid4()),
+    }
+
+
+def _failover_data_from_user_input(
     user_input: Mapping[str, Any],
     domain: str,
     sources: list[str],
 ) -> dict[str, Any]:
-    """Return config entry data from form input."""
-
-    return {
-        CONF_NAME: user_input[CONF_NAME],
-        CONF_DOMAIN: domain,
-        CONF_SOURCES: sources,
-        **_behavior_data_from_user_input(user_input),
-    }
-
-
-def _options_data_from_user_input(
-    user_input: Mapping[str, Any],
-    sources: list[str],
-) -> dict[str, Any]:
-    """Return options entry data from form input."""
-
-    return {
-        CONF_SOURCES: sources,
-        **_behavior_data_from_user_input(user_input),
-    }
-
-
-def _behavior_data_from_user_input(user_input: Mapping[str, Any]) -> dict[str, Any]:
-    """Return behavior settings from form input."""
+    """Return failover settings from form input."""
 
     advanced = _advanced_user_input(user_input)
     return {
+        CONF_NAME: str(user_input[CONF_NAME]),
+        CONF_DOMAIN: domain,
+        CONF_SOURCES: sources,
         CONF_AVAILABILITY_STRATEGY: user_input.get(
             CONF_AVAILABILITY_STRATEGY, DEFAULT_AVAILABILITY_STRATEGY
         ),
@@ -357,6 +361,7 @@ def _validate_sources(  # noqa: PLR0911
     domain: str,
     sources: list[str],
     current_entry_id: str | None,
+    current_subentry_id: str | None = None,
 ) -> str | None:
     """Validate source entity ids."""
 
@@ -375,9 +380,14 @@ def _validate_sources(  # noqa: PLR0911
             registry_entry is not None
             and registry_entry.platform == DOMAIN
             and registry_entry.config_entry_id == current_entry_id
+            and registry_entry.config_subentry_id == current_subentry_id
         ):
             return "self_reference"
-    if current_entry_id and _would_create_cycle(hass, sources, current_entry_id):
+    if (
+        current_entry_id
+        and current_subentry_id
+        and _would_create_cycle(hass, sources, current_entry_id, current_subentry_id)
+    ):
         return "circular_dependency"
     compatibility_error = adapter_for_domain(domain).validate_sources(hass, sources)
     if compatibility_error is not None:
@@ -389,6 +399,7 @@ def _would_create_cycle(
     hass: HomeAssistant,
     sources: list[str],
     current_entry_id: str,
+    current_subentry_id: str,
 ) -> bool:
     """Return whether selected sources would create an Entity Failover cycle."""
 
@@ -396,28 +407,33 @@ def _would_create_cycle(
     entries_by_id = {
         entry.entry_id: entry for entry in hass.config_entries.async_entries(DOMAIN)
     }
-    stack: list[str] = []
+    stack: list[tuple[str, str | None]] = []
     for source in sources:
         registry_entry = registry.async_get(source)
         if registry_entry is not None and registry_entry.platform == DOMAIN:
             config_entry_id = registry_entry.config_entry_id
             if config_entry_id is not None:
-                stack.append(config_entry_id)
-    seen: set[str] = set()
+                stack.append((config_entry_id, registry_entry.config_subentry_id))
+    seen: set[tuple[str, str | None]] = set()
     while stack:
-        entry_id = stack.pop()
-        if entry_id == current_entry_id:
+        entry_id, subentry_id = stack.pop()
+        if entry_id == current_entry_id and subentry_id == current_subentry_id:
             return True
-        if entry_id in seen:
+        if (entry_id, subentry_id) in seen:
             continue
-        seen.add(entry_id)
+        seen.add((entry_id, subentry_id))
         entry = entries_by_id.get(entry_id)
         if entry is None:
             continue
-        for source in entry.data.get(CONF_SOURCES, []):
+        source_ids = (
+            entry.subentries[subentry_id].data.get(CONF_SOURCES, [])
+            if subentry_id in entry.subentries
+            else entry.data.get(CONF_SOURCES, [])
+        )
+        for source in source_ids:
             registry_entry = registry.async_get(source)
             if registry_entry is not None and registry_entry.platform == DOMAIN:
                 config_entry_id = registry_entry.config_entry_id
                 if config_entry_id is not None:
-                    stack.append(config_entry_id)
+                    stack.append((config_entry_id, registry_entry.config_subentry_id))
     return False

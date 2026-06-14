@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import CONF_NAME
 
 from .const import (
@@ -68,6 +69,7 @@ class FailoverConfig:
     recovery_stability: float = DEFAULT_RECOVERY_STABILITY
     max_attempts: int = DEFAULT_MAX_ATTEMPTS
     feature_policy: FeaturePolicy = FeaturePolicy.INTERSECTION
+    subentry_id: str | None = None
 
     @classmethod
     def from_entry(cls, entry: ConfigEntry) -> FailoverConfig:
@@ -76,6 +78,7 @@ class FailoverConfig:
         merged: dict[str, Any] = {**entry.data, **entry.options}
         return cls(
             entry_id=entry.entry_id,
+            subentry_id=None,
             unique_id=entry.unique_id or entry.entry_id,
             name=str(merged[CONF_NAME]),
             domain=str(merged[CONF_DOMAIN]),
@@ -101,11 +104,68 @@ class FailoverConfig:
             ),
         )
 
+    @classmethod
+    def from_subentry(
+        cls,
+        entry: ConfigEntry,
+        subentry: ConfigSubentry,
+    ) -> FailoverConfig:
+        """Create normalized config from a config subentry."""
+
+        return cls._from_mapping(
+            entry_id=entry.entry_id,
+            subentry_id=subentry.subentry_id,
+            unique_id=subentry.unique_id or subentry.subentry_id,
+            data=subentry.data,
+            fallback_name=subentry.title,
+        )
+
+    @classmethod
+    def _from_mapping(
+        cls,
+        *,
+        entry_id: str,
+        subentry_id: str | None,
+        unique_id: str,
+        data: Mapping[str, Any],
+        fallback_name: str,
+    ) -> FailoverConfig:
+        """Create normalized config from stored data."""
+
+        return cls(
+            entry_id=entry_id,
+            subentry_id=subentry_id,
+            unique_id=unique_id,
+            name=str(data.get(CONF_NAME, fallback_name)),
+            domain=str(data[CONF_DOMAIN]),
+            sources=tuple(str(source) for source in data[CONF_SOURCES]),
+            availability_strategy=AvailabilityStrategy(
+                data.get(CONF_AVAILABILITY_STRATEGY, DEFAULT_AVAILABILITY_STRATEGY)
+            ),
+            command_validation=CommandValidation(
+                data.get(CONF_COMMAND_VALIDATION, DEFAULT_COMMAND_VALIDATION)
+            ),
+            confirmation_timeout=float(
+                data.get(CONF_CONFIRMATION_TIMEOUT, DEFAULT_CONFIRMATION_TIMEOUT)
+            ),
+            failure_cooldown=float(
+                data.get(CONF_FAILURE_COOLDOWN, DEFAULT_FAILURE_COOLDOWN)
+            ),
+            recovery_stability=float(
+                data.get(CONF_RECOVERY_STABILITY, DEFAULT_RECOVERY_STABILITY)
+            ),
+            max_attempts=int(data.get(CONF_MAX_ATTEMPTS, DEFAULT_MAX_ATTEMPTS)),
+            feature_policy=FeaturePolicy(
+                data.get(CONF_FEATURE_POLICY, DEFAULT_FEATURE_POLICY)
+            ),
+        )
+
     def as_dict(self) -> dict[str, Any]:
         """Return a serializable representation."""
 
         return {
             "entry_id": self.entry_id,
+            "subentry_id": self.subentry_id,
             "unique_id": self.unique_id,
             "name": self.name,
             "domain": self.domain,

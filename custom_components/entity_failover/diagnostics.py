@@ -16,7 +16,13 @@ async def async_get_config_entry_diagnostics(
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
 
-    manager = getattr(entry, "runtime_data", None)
-    if manager is None:
+    managers = getattr(entry, "runtime_data", None)
+    if managers is None:
         return {"entry": redact_mapping(entry.as_dict())}
-    return redact_mapping(manager.diagnostics().as_dict())
+    return {
+        "entry": redact_mapping(entry.as_dict()),
+        "failovers": [
+            redact_mapping(manager.diagnostics().as_dict())
+            for manager in managers.values()
+        ],
+    }

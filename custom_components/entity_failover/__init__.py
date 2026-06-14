@@ -2,17 +2,27 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+from types import MappingProxyType
+
 import voluptuous as vol
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
-from .const import DIAGNOSTIC_PLATFORMS, DOMAIN, SERVICE_CLEAR_FAILURES
+from .const import (
+    CONF_SOURCES,
+    DIAGNOSTIC_PLATFORMS,
+    DOMAIN,
+    NAME,
+    SERVICE_CLEAR_FAILURES,
+    SUBENTRY_TYPE_FAILOVER,
+)
 from .manager import FailoverManager
 from .model import FailoverConfig
 
-type EntityFailoverConfigEntry = ConfigEntry[FailoverManager]
+type EntityFailoverConfigEntry = ConfigEntry[dict[str, FailoverManager]]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -54,15 +64,17 @@ async def async_setup_entry(
     """Set up an Entity Failover config entry."""
 
     hass.data.setdefault(DOMAIN, {})
-    config = FailoverConfig.from_entry(entry)
-    manager = FailoverManager(hass, config)
-    entry.runtime_data = manager
-    hass.data[DOMAIN][entry.entry_id] = manager
-    await manager.async_start()
-    await hass.config_entries.async_forward_entry_setups(
-        entry,
-        _entry_platforms(config.domain),
-    )
+    managers = {
+        config.unique_id: FailoverManager(hass, config)
+        for config in _entry_configs(entry)
+    }
+    entry.runtime_data = managers
+    for manager in managers.values():
+        hass.data[DOMAIN][manager.config.unique_id] = manager
+        await manager.async_start()
+    platforms = _entry_platforms(managers.values())
+    if platforms:
+        await hass.config_entries.async_forward_entry_setups(entry, platforms)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
 
@@ -73,14 +85,17 @@ async def async_unload_entry(
 ) -> bool:
     """Unload an Entity Failover config entry."""
 
-    manager = entry.runtime_data
-    unload_ok = await hass.config_entries.async_unload_platforms(
-        entry,
-        _entry_platforms(manager.config.domain),
+    managers = entry.runtime_data
+    platforms = _entry_platforms(managers.values())
+    unload_ok = (
+        await hass.config_entries.async_unload_platforms(entry, platforms)
+        if platforms
+        else True
     )
     if unload_ok:
-        await manager.async_unload()
-        hass.data[DOMAIN].pop(entry.entry_id, None)
+        for manager in managers.values():
+            await manager.async_unload()
+            hass.data[DOMAIN].pop(manager.config.unique_id, None)
     return unload_ok
 
 
@@ -100,11 +115,48 @@ async def async_migrate_entry(
     """Migrate old config entries."""
 
     if entry.version == 1:
+        if CONF_SOURCES in entry.data:
+            hass.config_entries.async_add_subentry(
+                entry,
+                ConfigSubentry(
+                    data=MappingProxyType({**entry.data, **entry.options}),
+                    subentry_type=SUBENTRY_TYPE_FAILOVER,
+                    title=entry.title,
+                    unique_id=entry.unique_id,
+                ),
+            )
+            hass.config_entries.async_update_entry(
+                entry,
+                data={},
+                options={},
+                title=NAME,
+                version=2,
+            )
         return True
     return False
 
 
-def _entry_platforms(domain: str) -> list[str]:
+def _entry_configs(entry: EntityFailoverConfigEntry) -> list[FailoverConfig]:
+    """Return failover configs stored in an entry."""
+
+    if entry.subentries:
+        return [
+            FailoverConfig.from_subentry(entry, subentry)
+            for subentry in entry.subentries.values()
+            if subentry.subentry_type == SUBENTRY_TYPE_FAILOVER
+        ]
+    if CONF_SOURCES in entry.data:
+        return [FailoverConfig.from_entry(entry)]
+    return []
+
+
+def _entry_platforms(managers: Iterable[FailoverManager]) -> list[str]:
     """Return platforms needed by one config entry."""
 
-    return sorted({domain, *DIAGNOSTIC_PLATFORMS})
+    return sorted(
+        {
+            platform
+            for manager in managers
+            for platform in (manager.config.domain, *DIAGNOSTIC_PLATFORMS)
+        }
+    )

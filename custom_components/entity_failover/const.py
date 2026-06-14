@@ -37,6 +37,8 @@ ATTR_SOURCE_COUNT: Final = "source_count"
 
 SERVICE_CLEAR_FAILURES: Final = "clear_failures"
 
+SUBENTRY_TYPE_FAILOVER: Final = "failover"
+
 AVAILABILITY_STRATEGIES: Final = ["simple", "home_assistant"]
 COMMAND_VALIDATION_MODES: Final = ["none", "service_call", "state_confirmation"]
 FEATURE_POLICIES: Final = ["intersection", "active_source"]

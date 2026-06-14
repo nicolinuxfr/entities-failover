@@ -9,8 +9,6 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.entity_failover.config_flow import (
     ADVANCED_SECTION,
     EntityFailoverConfigFlow,
-    EntityFailoverOptionsFlow,
-    _options_schema,
     _user_schema,
     _validate_sources,
 )
@@ -25,6 +23,8 @@ from custom_components.entity_failover.const import (
     CONF_RECOVERY_STABILITY,
     CONF_SOURCES,
     DOMAIN,
+    NAME,
+    SUBENTRY_TYPE_FAILOVER,
 )
 
 
@@ -71,7 +71,6 @@ def test_source_selectors_default_to_empty_lists() -> None:
     """Multiple entity selectors must never receive None as a default."""
 
     assert _user_schema()({})[CONF_SOURCES] == []
-    assert _options_schema()({})[CONF_SOURCES] == []
 
 
 def test_advanced_settings_are_collapsed() -> None:
@@ -85,108 +84,63 @@ def test_advanced_settings_are_collapsed() -> None:
 
 @pytest.mark.asyncio
 async def test_config_flow_creates_entry(hass) -> None:
-    """The UI flow creates a config entry from a single form."""
-
-    hass.states.async_set("switch.one", "on")
-    hass.states.async_set("switch.two", "off")
+    """The UI flow creates the service entry."""
 
     flow = EntityFailoverConfigFlow()
     flow.hass = hass
     flow.context = {"source": "user"}
 
     result = await flow.async_step_user()
-    assert result["type"] == "form"
-
-    result = await flow.async_step_user(
-        {
-            "name": "Kitchen Switch",
-            CONF_SOURCES: ["switch.one", "switch.two"],
-            "availability_strategy": "simple",
-            "recovery_stability": 30,
-            "failure_cooldown": 60,
-            "feature_policy": "intersection",
-            ADVANCED_SECTION: {
-                "command_validation": "service_call",
-                "confirmation_timeout": 10,
-                "max_attempts": 3,
-            },
-        },
-    )
 
     assert result["type"] == "create_entry"
-    assert result["title"] == "Kitchen Switch"
-    assert result["data"][CONF_DOMAIN] == "switch"
-    assert result["data"][CONF_COMMAND_VALIDATION] == "service_call"
+    assert result["title"] == NAME
+    assert result["data"] == {}
+    assert list(result["subentries"]) == []
 
 
 @pytest.mark.asyncio
 async def test_config_flow_manager_creates_entry_from_single_form(hass) -> None:
-    """Home Assistant's flow manager validates the one-screen schema."""
-
-    hass.states.async_set("switch.one", "on")
-    hass.states.async_set("switch.two", "off")
+    """Home Assistant's flow manager creates a service entry."""
 
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
         context={"source": "user"},
     )
-    assert result["type"] == "form"
-    assert result["last_step"] is True
-
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
-        {
-            "name": "Kitchen Switch",
-            CONF_SOURCES: ["switch.one", "switch.two"],
-            CONF_AVAILABILITY_STRATEGY: "simple",
-            CONF_RECOVERY_STABILITY: 30,
-            CONF_FAILURE_COOLDOWN: 60,
-            CONF_FEATURE_POLICY: "intersection",
-            ADVANCED_SECTION: {
-                CONF_COMMAND_VALIDATION: "service_call",
-                CONF_CONFIRMATION_TIMEOUT: 10,
-                CONF_MAX_ATTEMPTS: 3,
-            },
-        },
-    )
 
     assert result["type"] == "create_entry"
-    assert result["data"][CONF_DOMAIN] == "switch"
+    entry = result["result"]
+    assert entry.title == NAME
+    assert len(entry.subentries) == 0
+    assert SUBENTRY_TYPE_FAILOVER in entry.supported_subentry_types
 
 
 @pytest.mark.asyncio
-async def test_options_flow_updates_entry_from_single_form(hass) -> None:
-    """The options flow updates behavior from a single form."""
+async def test_subentry_flow_adds_failover_from_integration_page(hass) -> None:
+    """The integration page can add failover entities as subentries."""
 
     hass.states.async_set("switch.one", "on")
     hass.states.async_set("switch.two", "off")
     entry = MockConfigEntry(
         domain=DOMAIN,
-        title="Kitchen Switch",
-        unique_id="unique-options",
-        data={
-            "name": "Kitchen Switch",
-            CONF_DOMAIN: "switch",
-            CONF_SOURCES: ["switch.one", "switch.two"],
-            CONF_AVAILABILITY_STRATEGY: "simple",
-            CONF_COMMAND_VALIDATION: "service_call",
-            CONF_CONFIRMATION_TIMEOUT: 10,
-            CONF_FAILURE_COOLDOWN: 60,
-            CONF_RECOVERY_STABILITY: 30,
-            CONF_MAX_ATTEMPTS: 3,
-            CONF_FEATURE_POLICY: "intersection",
-        },
+        title=NAME,
+        unique_id=DOMAIN,
+        data={},
+        version=2,
     )
     entry.add_to_hass(hass)
-    flow = EntityFailoverOptionsFlow(entry)
-    flow.hass = hass
 
-    result = await flow.async_step_init()
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_TYPE_FAILOVER),
+        context={"source": "user"},
+    )
     assert result["type"] == "form"
-    assert result["step_id"] == "init"
+    assert result["step_id"] == "user"
+    assert result["last_step"] is True
 
-    result = await flow.async_step_init(
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
         {
+            "name": "Kitchen Switch",
             CONF_SOURCES: ["switch.one", "switch.two"],
             CONF_AVAILABILITY_STRATEGY: "simple",
             CONF_RECOVERY_STABILITY: 15,
@@ -201,26 +155,72 @@ async def test_options_flow_updates_entry_from_single_form(hass) -> None:
     )
 
     assert result["type"] == "create_entry"
+    subentry = next(iter(entry.subentries.values()))
+    assert subentry.title == "Kitchen Switch"
     assert result["data"][CONF_RECOVERY_STABILITY] == 15
     assert result["data"][CONF_COMMAND_VALIDATION] == "none"
 
 
-def test_options_schema_uses_existing_defaults() -> None:
-    """Existing options appear as defaults in the single form."""
+@pytest.mark.asyncio
+async def test_subentry_flow_reconfigures_failover(hass) -> None:
+    """Existing failover subentries can be reconfigured."""
 
-    data = _options_schema(
+    hass.states.async_set("switch.one", "on")
+    hass.states.async_set("switch.two", "off")
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title=NAME,
+        unique_id=DOMAIN,
+        data={},
+        subentries_data=[
+            {
+                "data": {
+                    "name": "Kitchen Switch",
+                    CONF_DOMAIN: "switch",
+                    CONF_SOURCES: ["switch.one", "switch.two"],
+                    CONF_AVAILABILITY_STRATEGY: "simple",
+                    CONF_COMMAND_VALIDATION: "service_call",
+                    CONF_CONFIRMATION_TIMEOUT: 10,
+                    CONF_FAILURE_COOLDOWN: 60,
+                    CONF_RECOVERY_STABILITY: 30,
+                    CONF_MAX_ATTEMPTS: 3,
+                    CONF_FEATURE_POLICY: "intersection",
+                },
+                "subentry_type": SUBENTRY_TYPE_FAILOVER,
+                "title": "Kitchen Switch",
+                "unique_id": "unique-subentry",
+            }
+        ],
+        version=2,
+    )
+    entry.add_to_hass(hass)
+    subentry = next(iter(entry.subentries.values()))
+
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_TYPE_FAILOVER),
+        context={"source": "reconfigure", "subentry_id": subentry.subentry_id},
+    )
+    assert result["type"] == "form"
+    assert result["step_id"] == "reconfigure"
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
         {
+            "name": "Updated Switch",
             CONF_SOURCES: ["switch.one", "switch.two"],
             CONF_AVAILABILITY_STRATEGY: "simple",
-            CONF_RECOVERY_STABILITY: 15,
-            CONF_FAILURE_COOLDOWN: 45,
+            CONF_RECOVERY_STABILITY: 20,
+            CONF_FAILURE_COOLDOWN: 40,
             CONF_FEATURE_POLICY: "active_source",
-            CONF_COMMAND_VALIDATION: "none",
-            CONF_CONFIRMATION_TIMEOUT: 5,
-            CONF_MAX_ATTEMPTS: 2,
-        }
-    )({})
+            ADVANCED_SECTION: {
+                CONF_COMMAND_VALIDATION: "none",
+                CONF_CONFIRMATION_TIMEOUT: 5,
+                CONF_MAX_ATTEMPTS: 2,
+            },
+        },
+    )
 
-    assert data[CONF_SOURCES] == ["switch.one", "switch.two"]
-    assert data[CONF_FEATURE_POLICY] == "active_source"
-    assert data[ADVANCED_SECTION][CONF_COMMAND_VALIDATION] == "none"
+    assert result["type"] == "abort"
+    updated = entry.subentries[subentry.subentry_id]
+    assert updated.title == "Updated Switch"
+    assert updated.data[CONF_FEATURE_POLICY] == "active_source"
