@@ -1,0 +1,12 @@
+{
+  "domain": "entity_failover",
+  "name": "Entity Failover",
+  "codeowners": [],
+  "config_flow": true,
+  "documentation": "https://github.com/nicolinuxfr/entities-failover",
+  "integration_type": "helper",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/nicolinuxfr/entities-failover/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

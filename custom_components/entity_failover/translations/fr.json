@@ -1,0 +1,98 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Créer une entité de secours",
+        "data": {
+          "name": "Nom de l'appareil synthétique",
+          "domain": "Domaine"
+        }
+      },
+      "sources": {
+        "title": "Sélection des sources",
+        "description": "Sélectionnez au moins deux entités sources. L'ordre définit la priorité.",
+        "data": {
+          "sources": "Entités sources ordonnées"
+        }
+      },
+      "general": {
+        "title": "Comportement de bascule",
+        "data": {
+          "availability_strategy": "Stratégie de disponibilité",
+          "recovery_stability": "Délai de stabilité avant retour vers une source prioritaire",
+          "failure_cooldown": "Durée d'exclusion temporaire après échec",
+          "feature_policy": "Politique des fonctionnalités prises en charge"
+        }
+      },
+      "advanced": {
+        "title": "Validation avancée des commandes",
+        "description": "La confirmation par état est expérimentale et ne peut confirmer que ce que l'intégration source publie.",
+        "data": {
+          "command_validation": "Validation des commandes",
+          "confirmation_timeout": "Délai maximal de confirmation",
+          "max_attempts": "Nombre maximal de tentatives"
+        }
+      }
+    },
+    "error": {
+      "too_few_sources": "Sélectionnez au moins deux entités sources.",
+      "duplicate_sources": "Une source ne peut pas être sélectionnée plusieurs fois.",
+      "mixed_domains": "Toutes les sources doivent appartenir au domaine sélectionné.",
+      "self_reference": "L'entité de secours ne peut pas s'utiliser elle-même comme source.",
+      "circular_dependency": "Cet ordre de sources créerait une dépendance circulaire.",
+      "incompatible_device_class": "Les sources sélectionnées ont des classes d'appareil incompatibles.",
+      "incompatible_state_class": "Les sources sélectionnées ont des classes d'état incompatibles.",
+      "incompatible_unit_of_measurement": "Les sources sélectionnées ont des unités incompatibles."
+    }
+  },
+  "options": {
+    "step": {
+      "sources": {
+        "title": "Modifier les sources",
+        "description": "Réordonnez les sources pour changer la priorité.",
+        "data": {
+          "sources": "Entités sources ordonnées"
+        }
+      },
+      "general": {
+        "title": "Modifier le comportement de bascule",
+        "data": {
+          "availability_strategy": "Stratégie de disponibilité",
+          "recovery_stability": "Délai de stabilité avant retour vers une source prioritaire",
+          "failure_cooldown": "Durée d'exclusion temporaire après échec",
+          "feature_policy": "Politique des fonctionnalités prises en charge"
+        }
+      },
+      "advanced": {
+        "title": "Modifier la validation des commandes",
+        "description": "La confirmation par état est expérimentale et ne peut confirmer que ce que l'intégration source publie.",
+        "data": {
+          "command_validation": "Validation des commandes",
+          "confirmation_timeout": "Délai maximal de confirmation",
+          "max_attempts": "Nombre maximal de tentatives"
+        }
+      }
+    }
+  },
+  "issues": {
+    "all_sources_unavailable": {
+      "title": "{name} n'a aucune source disponible",
+      "description": "Toutes les entités sources configurées sont indisponibles ou exclues : {sources}."
+    }
+  },
+  "services": {
+    "clear_failures": {
+      "name": "Effacer les échecs",
+      "description": "Efface les exclusions temporaires et recalcule immédiatement la source active.",
+      "fields": {
+        "entry_id": {
+          "name": "ID de config entry"
+        },
+        "entity_id": {
+          "name": "Entité"
+        }
+      }
+    }
+  }
+}
+

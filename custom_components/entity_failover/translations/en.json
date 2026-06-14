@@ -1,0 +1,98 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Create failover entity",
+        "data": {
+          "name": "Synthetic device name",
+          "domain": "Domain"
+        }
+      },
+      "sources": {
+        "title": "Select sources",
+        "description": "Select at least two source entities. Their order is the failover priority.",
+        "data": {
+          "sources": "Ordered source entities"
+        }
+      },
+      "general": {
+        "title": "Failover behavior",
+        "data": {
+          "availability_strategy": "Availability strategy",
+          "recovery_stability": "Stability delay before returning to a higher-priority source",
+          "failure_cooldown": "Temporary exclusion duration after a failure",
+          "feature_policy": "Supported features policy"
+        }
+      },
+      "advanced": {
+        "title": "Advanced command validation",
+        "description": "State confirmation is experimental and can only confirm what the source integration publishes.",
+        "data": {
+          "command_validation": "Command validation",
+          "confirmation_timeout": "Maximum confirmation delay",
+          "max_attempts": "Maximum attempts"
+        }
+      }
+    },
+    "error": {
+      "too_few_sources": "Select at least two source entities.",
+      "duplicate_sources": "The same source cannot be selected more than once.",
+      "mixed_domains": "All sources must belong to the selected domain.",
+      "self_reference": "The failover entity cannot use itself as a source.",
+      "circular_dependency": "This source order would create a circular dependency.",
+      "incompatible_device_class": "The selected sources have incompatible device classes.",
+      "incompatible_state_class": "The selected sources have incompatible state classes.",
+      "incompatible_unit_of_measurement": "The selected sources have incompatible units."
+    }
+  },
+  "options": {
+    "step": {
+      "sources": {
+        "title": "Update sources",
+        "description": "Reorder sources to change priority.",
+        "data": {
+          "sources": "Ordered source entities"
+        }
+      },
+      "general": {
+        "title": "Update failover behavior",
+        "data": {
+          "availability_strategy": "Availability strategy",
+          "recovery_stability": "Stability delay before returning to a higher-priority source",
+          "failure_cooldown": "Temporary exclusion duration after a failure",
+          "feature_policy": "Supported features policy"
+        }
+      },
+      "advanced": {
+        "title": "Update command validation",
+        "description": "State confirmation is experimental and can only confirm what the source integration publishes.",
+        "data": {
+          "command_validation": "Command validation",
+          "confirmation_timeout": "Maximum confirmation delay",
+          "max_attempts": "Maximum attempts"
+        }
+      }
+    }
+  },
+  "issues": {
+    "all_sources_unavailable": {
+      "title": "{name} has no available source",
+      "description": "All configured source entities are unavailable or excluded: {sources}."
+    }
+  },
+  "services": {
+    "clear_failures": {
+      "name": "Clear failures",
+      "description": "Clear temporary source exclusions and immediately recalculate the active source.",
+      "fields": {
+        "entry_id": {
+          "name": "Config entry ID"
+        },
+        "entity_id": {
+          "name": "Entity"
+        }
+      }
+    }
+  }
+}
+

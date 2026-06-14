@@ -1,0 +1,12 @@
+clear_failures:
+  fields:
+    entry_id:
+      selector:
+        text:
+      required: false
+    entity_id:
+      selector:
+        entity:
+          integration: entity_failover
+      required: false
+

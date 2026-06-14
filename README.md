@@ -17,8 +17,9 @@ Automations and dashboards use only the synthetic entity, for example
 
 ## Installation
 
-Install as a HACS custom repository of type Integration, restart Home Assistant,
-then add **Entity Failover** from **Settings > Devices & services**.
+Install `https://github.com/nicolinuxfr/entities-failover` as a HACS custom
+repository of type Integration, restart Home Assistant, then add
+**Entity Failover** from **Settings > Devices & services**.
 
 This integration is local, has no Supervisor dependency, and does not require
 YAML configuration.
@@ -129,8 +130,9 @@ cover.living_room_shutter
 ## Development
 
 ```bash
-python -m pytest
-python -m ruff check .
-python -m ruff format --check .
+python3 -m venv .venv
+.venv/bin/python -m pip install -e '.[test]'
+.venv/bin/python -m ruff check .
+.venv/bin/python -m ruff format --check .
+.venv/bin/python -m pytest
 ```
-
