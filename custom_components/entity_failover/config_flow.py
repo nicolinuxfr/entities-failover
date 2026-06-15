@@ -425,11 +425,9 @@ def _would_create_cycle(
         entry = entries_by_id.get(entry_id)
         if entry is None:
             continue
-        source_ids = (
-            entry.subentries[subentry_id].data.get(CONF_SOURCES, [])
-            if subentry_id in entry.subentries
-            else entry.data.get(CONF_SOURCES, [])
-        )
+        if subentry_id not in entry.subentries:
+            continue
+        source_ids = entry.subentries[subentry_id].data.get(CONF_SOURCES, [])
         for source in source_ids:
             registry_entry = registry.async_get(source)
             if registry_entry is not None and registry_entry.platform == DOMAIN:

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
@@ -72,39 +71,6 @@ class FailoverConfig:
     subentry_id: str | None = None
 
     @classmethod
-    def from_entry(cls, entry: ConfigEntry) -> FailoverConfig:
-        """Create normalized config from a config entry."""
-
-        merged: dict[str, Any] = {**entry.data, **entry.options}
-        return cls(
-            entry_id=entry.entry_id,
-            subentry_id=None,
-            unique_id=entry.unique_id or entry.entry_id,
-            name=str(merged[CONF_NAME]),
-            domain=str(merged[CONF_DOMAIN]),
-            sources=tuple(str(source) for source in merged[CONF_SOURCES]),
-            availability_strategy=AvailabilityStrategy(
-                merged.get(CONF_AVAILABILITY_STRATEGY, DEFAULT_AVAILABILITY_STRATEGY)
-            ),
-            command_validation=CommandValidation(
-                merged.get(CONF_COMMAND_VALIDATION, DEFAULT_COMMAND_VALIDATION)
-            ),
-            confirmation_timeout=float(
-                merged.get(CONF_CONFIRMATION_TIMEOUT, DEFAULT_CONFIRMATION_TIMEOUT)
-            ),
-            failure_cooldown=float(
-                merged.get(CONF_FAILURE_COOLDOWN, DEFAULT_FAILURE_COOLDOWN)
-            ),
-            recovery_stability=float(
-                merged.get(CONF_RECOVERY_STABILITY, DEFAULT_RECOVERY_STABILITY)
-            ),
-            max_attempts=int(merged.get(CONF_MAX_ATTEMPTS, DEFAULT_MAX_ATTEMPTS)),
-            feature_policy=FeaturePolicy(
-                merged.get(CONF_FEATURE_POLICY, DEFAULT_FEATURE_POLICY)
-            ),
-        )
-
-    @classmethod
     def from_subentry(
         cls,
         entry: ConfigEntry,
@@ -112,31 +78,12 @@ class FailoverConfig:
     ) -> FailoverConfig:
         """Create normalized config from a config subentry."""
 
-        return cls._from_mapping(
+        data = subentry.data
+        return cls(
             entry_id=entry.entry_id,
             subentry_id=subentry.subentry_id,
             unique_id=subentry.unique_id or subentry.subentry_id,
-            data=subentry.data,
-            fallback_name=subentry.title,
-        )
-
-    @classmethod
-    def _from_mapping(
-        cls,
-        *,
-        entry_id: str,
-        subentry_id: str | None,
-        unique_id: str,
-        data: Mapping[str, Any],
-        fallback_name: str,
-    ) -> FailoverConfig:
-        """Create normalized config from stored data."""
-
-        return cls(
-            entry_id=entry_id,
-            subentry_id=subentry_id,
-            unique_id=unique_id,
-            name=str(data.get(CONF_NAME, fallback_name)),
+            name=str(data.get(CONF_NAME, subentry.title)),
             domain=str(data[CONF_DOMAIN]),
             sources=tuple(str(source) for source in data[CONF_SOURCES]),
             availability_strategy=AvailabilityStrategy(

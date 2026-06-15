@@ -3,19 +3,16 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from types import MappingProxyType
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigEntry, ConfigSubentry
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 
 from .const import (
-    CONF_SOURCES,
     DIAGNOSTIC_PLATFORMS,
     DOMAIN,
-    NAME,
     SERVICE_CLEAR_FAILURES,
     SUBENTRY_TYPE_FAILOVER,
 )
@@ -108,46 +105,14 @@ async def _async_update_listener(
     await hass.config_entries.async_reload(entry.entry_id)
 
 
-async def async_migrate_entry(
-    hass: HomeAssistant,
-    entry: EntityFailoverConfigEntry,
-) -> bool:
-    """Migrate old config entries."""
-
-    if entry.version == 1:
-        if CONF_SOURCES in entry.data:
-            hass.config_entries.async_add_subentry(
-                entry,
-                ConfigSubentry(
-                    data=MappingProxyType({**entry.data, **entry.options}),
-                    subentry_type=SUBENTRY_TYPE_FAILOVER,
-                    title=entry.title,
-                    unique_id=entry.unique_id,
-                ),
-            )
-            hass.config_entries.async_update_entry(
-                entry,
-                data={},
-                options={},
-                title=NAME,
-                version=2,
-            )
-        return True
-    return False
-
-
 def _entry_configs(entry: EntityFailoverConfigEntry) -> list[FailoverConfig]:
     """Return failover configs stored in an entry."""
 
-    if entry.subentries:
-        return [
-            FailoverConfig.from_subentry(entry, subentry)
-            for subentry in entry.subentries.values()
-            if subentry.subentry_type == SUBENTRY_TYPE_FAILOVER
-        ]
-    if CONF_SOURCES in entry.data:
-        return [FailoverConfig.from_entry(entry)]
-    return []
+    return [
+        FailoverConfig.from_subentry(entry, subentry)
+        for subentry in entry.subentries.values()
+        if subentry.subentry_type == SUBENTRY_TYPE_FAILOVER
+    ]
 
 
 def _entry_platforms(managers: Iterable[FailoverManager]) -> list[str]:
