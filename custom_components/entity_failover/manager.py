@@ -40,7 +40,6 @@ from .const import (
 )
 from .helpers import friendly_name, state_available
 from .model import (
-    AvailabilityStrategy,
     CommandResult,
     CommandValidation,
     FailoverConfig,
@@ -222,11 +221,7 @@ class FailoverManager:
             state = self.hass.states.get(source)
             health = self._health[source]
             health.exists = state is not None
-            allow_unknown = (
-                self.config.availability_strategy == AvailabilityStrategy.HOME_ASSISTANT
-                and self.adapter.read_only
-            )
-            health.available = state_available(state, allow_unknown=allow_unknown)
+            health.available = state_available(state)
             if health.excluded_until is not None and health.excluded_until <= now:
                 health.excluded_until = None
 
@@ -380,7 +375,7 @@ class FailoverManager:
         attempts = 0
         last_error: Exception | None = None
         tried: set[str] = set()
-        while attempts < self.config.max_attempts:
+        while attempts < len(self.config.sources):
             self._refresh_health()
             source = self._select_command_source(tried, required_features)
             if source is None:
@@ -409,8 +404,6 @@ class FailoverManager:
                 return
             except Exception as err:
                 last_error = err
-                if self.config.command_validation == CommandValidation.NONE:
-                    raise
                 self._exclude_source(source, err)
                 old_active = self.active_source
                 self.active_source = self._best_operational_source()

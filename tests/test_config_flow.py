@@ -13,13 +13,11 @@ from custom_components.entity_failover.config_flow import (
     _validate_sources,
 )
 from custom_components.entity_failover.const import (
-    CONF_AVAILABILITY_STRATEGY,
     CONF_COMMAND_VALIDATION,
     CONF_CONFIRMATION_TIMEOUT,
     CONF_DOMAIN,
     CONF_FAILURE_COOLDOWN,
     CONF_FEATURE_POLICY,
-    CONF_MAX_ATTEMPTS,
     CONF_RECOVERY_STABILITY,
     CONF_SOURCES,
     DOMAIN,
@@ -82,6 +80,31 @@ def test_advanced_settings_are_collapsed() -> None:
     assert section.options["collapsed"] is True
 
 
+def test_advanced_settings_hold_technical_choices() -> None:
+    """Technical routing choices are kept out of the main form."""
+
+    schema = _user_schema()
+    section = schema.schema[ADVANCED_SECTION]
+
+    assert CONF_FEATURE_POLICY not in schema.schema
+    assert CONF_FEATURE_POLICY in section.schema.schema
+
+
+def test_advanced_selectors_use_translatable_labels() -> None:
+    """Advanced selectors expose translation keys instead of raw values."""
+
+    section = _user_schema().schema[ADVANCED_SECTION]
+    feature_policy = section.schema.schema[CONF_FEATURE_POLICY]
+    command_validation = section.schema.schema[CONF_COMMAND_VALIDATION]
+
+    assert feature_policy.config["translation_key"] == CONF_FEATURE_POLICY
+    assert command_validation.config["translation_key"] == CONF_COMMAND_VALIDATION
+    assert command_validation.config["options"] == [
+        "service_call",
+        "state_confirmation",
+    ]
+
+
 @pytest.mark.asyncio
 async def test_config_flow_creates_entry(hass) -> None:
     """The UI flow creates the service entry with a first failover subentry."""
@@ -100,14 +123,12 @@ async def test_config_flow_creates_entry(hass) -> None:
         {
             "name": "Kitchen Switch",
             CONF_SOURCES: ["switch.one", "switch.two"],
-            CONF_AVAILABILITY_STRATEGY: "simple",
             CONF_RECOVERY_STABILITY: 30,
             CONF_FAILURE_COOLDOWN: 60,
-            CONF_FEATURE_POLICY: "intersection",
             ADVANCED_SECTION: {
+                CONF_FEATURE_POLICY: "intersection",
                 CONF_COMMAND_VALIDATION: "service_call",
                 CONF_CONFIRMATION_TIMEOUT: 10,
-                CONF_MAX_ATTEMPTS: 3,
             },
         },
     )
@@ -118,6 +139,16 @@ async def test_config_flow_creates_entry(hass) -> None:
     assert subentry["title"] == "Kitchen Switch"
     assert subentry["subentry_type"] == SUBENTRY_TYPE_FAILOVER
     assert subentry["data"][CONF_DOMAIN] == "switch"
+    assert set(subentry["data"]) == {
+        "name",
+        CONF_DOMAIN,
+        CONF_SOURCES,
+        CONF_COMMAND_VALIDATION,
+        CONF_CONFIRMATION_TIMEOUT,
+        CONF_FAILURE_COOLDOWN,
+        CONF_RECOVERY_STABILITY,
+        CONF_FEATURE_POLICY,
+    }
 
 
 @pytest.mark.asyncio
@@ -139,14 +170,12 @@ async def test_config_flow_manager_creates_entry_from_single_form(hass) -> None:
         {
             "name": "Kitchen Switch",
             CONF_SOURCES: ["switch.one", "switch.two"],
-            CONF_AVAILABILITY_STRATEGY: "simple",
             CONF_RECOVERY_STABILITY: 30,
             CONF_FAILURE_COOLDOWN: 60,
-            CONF_FEATURE_POLICY: "intersection",
             ADVANCED_SECTION: {
+                CONF_FEATURE_POLICY: "intersection",
                 CONF_COMMAND_VALIDATION: "service_call",
                 CONF_CONFIRMATION_TIMEOUT: 10,
-                CONF_MAX_ATTEMPTS: 3,
             },
         },
     )
@@ -189,14 +218,12 @@ async def test_subentry_flow_adds_failover_from_integration_page(hass) -> None:
         {
             "name": "Kitchen Switch",
             CONF_SOURCES: ["switch.one", "switch.two"],
-            CONF_AVAILABILITY_STRATEGY: "simple",
             CONF_RECOVERY_STABILITY: 15,
             CONF_FAILURE_COOLDOWN: 45,
-            CONF_FEATURE_POLICY: "active_source",
             ADVANCED_SECTION: {
-                CONF_COMMAND_VALIDATION: "none",
+                CONF_FEATURE_POLICY: "active_source",
+                CONF_COMMAND_VALIDATION: "service_call",
                 CONF_CONFIRMATION_TIMEOUT: 5,
-                CONF_MAX_ATTEMPTS: 2,
             },
         },
     )
@@ -205,7 +232,7 @@ async def test_subentry_flow_adds_failover_from_integration_page(hass) -> None:
     subentry = next(iter(entry.subentries.values()))
     assert subentry.title == "Kitchen Switch"
     assert result["data"][CONF_RECOVERY_STABILITY] == 15
-    assert result["data"][CONF_COMMAND_VALIDATION] == "none"
+    assert result["data"][CONF_COMMAND_VALIDATION] == "service_call"
 
 
 @pytest.mark.asyncio
@@ -225,12 +252,10 @@ async def test_subentry_flow_reconfigures_failover(hass) -> None:
                     "name": "Kitchen Switch",
                     CONF_DOMAIN: "switch",
                     CONF_SOURCES: ["switch.one", "switch.two"],
-                    CONF_AVAILABILITY_STRATEGY: "simple",
                     CONF_COMMAND_VALIDATION: "service_call",
                     CONF_CONFIRMATION_TIMEOUT: 10,
                     CONF_FAILURE_COOLDOWN: 60,
                     CONF_RECOVERY_STABILITY: 30,
-                    CONF_MAX_ATTEMPTS: 3,
                     CONF_FEATURE_POLICY: "intersection",
                 },
                 "subentry_type": SUBENTRY_TYPE_FAILOVER,
@@ -255,14 +280,12 @@ async def test_subentry_flow_reconfigures_failover(hass) -> None:
         {
             "name": "Updated Switch",
             CONF_SOURCES: ["switch.one", "switch.two"],
-            CONF_AVAILABILITY_STRATEGY: "simple",
             CONF_RECOVERY_STABILITY: 20,
             CONF_FAILURE_COOLDOWN: 40,
-            CONF_FEATURE_POLICY: "active_source",
             ADVANCED_SECTION: {
-                CONF_COMMAND_VALIDATION: "none",
+                CONF_FEATURE_POLICY: "active_source",
+                CONF_COMMAND_VALIDATION: "state_confirmation",
                 CONF_CONFIRMATION_TIMEOUT: 5,
-                CONF_MAX_ATTEMPTS: 2,
             },
         },
     )

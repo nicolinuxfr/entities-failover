@@ -15,23 +15,18 @@ from homeassistant.helpers import selector
 
 from .adapters import adapter_for_domain
 from .const import (
-    AVAILABILITY_STRATEGIES,
     COMMAND_VALIDATION_MODES,
-    CONF_AVAILABILITY_STRATEGY,
     CONF_COMMAND_VALIDATION,
     CONF_CONFIRMATION_TIMEOUT,
     CONF_DOMAIN,
     CONF_FAILURE_COOLDOWN,
     CONF_FEATURE_POLICY,
-    CONF_MAX_ATTEMPTS,
     CONF_RECOVERY_STABILITY,
     CONF_SOURCES,
-    DEFAULT_AVAILABILITY_STRATEGY,
     DEFAULT_COMMAND_VALIDATION,
     DEFAULT_CONFIRMATION_TIMEOUT,
     DEFAULT_FAILURE_COOLDOWN,
     DEFAULT_FEATURE_POLICY,
-    DEFAULT_MAX_ATTEMPTS,
     DEFAULT_RECOVERY_STABILITY,
     DOMAIN,
     FEATURE_POLICIES,
@@ -42,8 +37,6 @@ from .const import (
 from .helpers import entity_domain, normalize_sources
 
 ADVANCED_SECTION = "advanced"
-
-
 class EntityFailoverConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle an Entity Failover config flow."""
 
@@ -217,14 +210,6 @@ def _general_schema_fields(
     defaults = defaults or {}
     return {
         vol.Required(
-            CONF_AVAILABILITY_STRATEGY,
-            default=defaults.get(
-                CONF_AVAILABILITY_STRATEGY, DEFAULT_AVAILABILITY_STRATEGY
-            ),
-        ): selector.SelectSelector(
-            selector.SelectSelectorConfig(options=AVAILABILITY_STRATEGIES)
-        ),
-        vol.Required(
             CONF_RECOVERY_STABILITY,
             default=defaults.get(CONF_RECOVERY_STABILITY, DEFAULT_RECOVERY_STABILITY),
         ): selector.NumberSelector(
@@ -248,12 +233,6 @@ def _general_schema_fields(
                 unit_of_measurement="s",
             )
         ),
-        vol.Required(
-            CONF_FEATURE_POLICY,
-            default=defaults.get(CONF_FEATURE_POLICY, DEFAULT_FEATURE_POLICY),
-        ): selector.SelectSelector(
-            selector.SelectSelectorConfig(options=FEATURE_POLICIES)
-        ),
     }
 
 
@@ -265,10 +244,22 @@ def _advanced_schema_fields(
     defaults = defaults or {}
     return {
         vol.Required(
+            CONF_FEATURE_POLICY,
+            default=defaults.get(CONF_FEATURE_POLICY, DEFAULT_FEATURE_POLICY),
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=FEATURE_POLICIES,
+                translation_key=CONF_FEATURE_POLICY,
+            )
+        ),
+        vol.Required(
             CONF_COMMAND_VALIDATION,
             default=defaults.get(CONF_COMMAND_VALIDATION, DEFAULT_COMMAND_VALIDATION),
         ): selector.SelectSelector(
-            selector.SelectSelectorConfig(options=COMMAND_VALIDATION_MODES)
+            selector.SelectSelectorConfig(
+                options=COMMAND_VALIDATION_MODES,
+                translation_key=CONF_COMMAND_VALIDATION,
+            )
         ),
         vol.Required(
             CONF_CONFIRMATION_TIMEOUT,
@@ -284,17 +275,6 @@ def _advanced_schema_fields(
                 unit_of_measurement="s",
             )
         ),
-        vol.Required(
-            CONF_MAX_ATTEMPTS,
-            default=defaults.get(CONF_MAX_ATTEMPTS, DEFAULT_MAX_ATTEMPTS),
-        ): selector.NumberSelector(
-            selector.NumberSelectorConfig(
-                min=1,
-                max=10,
-                step=1,
-                mode=selector.NumberSelectorMode.BOX,
-            )
-        ),
     }
 
 
@@ -306,13 +286,13 @@ def _advanced_defaults(defaults: Mapping[str, Any] | None) -> dict[str, Any]:
     if isinstance(section_defaults, Mapping):
         defaults = {**defaults, **section_defaults}
     return {
+        CONF_FEATURE_POLICY: defaults.get(CONF_FEATURE_POLICY, DEFAULT_FEATURE_POLICY),
         CONF_COMMAND_VALIDATION: defaults.get(
             CONF_COMMAND_VALIDATION, DEFAULT_COMMAND_VALIDATION
         ),
         CONF_CONFIRMATION_TIMEOUT: defaults.get(
             CONF_CONFIRMATION_TIMEOUT, DEFAULT_CONFIRMATION_TIMEOUT
         ),
-        CONF_MAX_ATTEMPTS: defaults.get(CONF_MAX_ATTEMPTS, DEFAULT_MAX_ATTEMPTS),
     }
 
 
@@ -352,9 +332,6 @@ def _failover_data_from_user_input(
         CONF_NAME: str(user_input[CONF_NAME]),
         CONF_DOMAIN: domain,
         CONF_SOURCES: sources,
-        CONF_AVAILABILITY_STRATEGY: user_input.get(
-            CONF_AVAILABILITY_STRATEGY, DEFAULT_AVAILABILITY_STRATEGY
-        ),
         CONF_COMMAND_VALIDATION: advanced.get(
             CONF_COMMAND_VALIDATION, DEFAULT_COMMAND_VALIDATION
         ),
@@ -367,9 +344,9 @@ def _failover_data_from_user_input(
         CONF_RECOVERY_STABILITY: user_input.get(
             CONF_RECOVERY_STABILITY, DEFAULT_RECOVERY_STABILITY
         ),
-        CONF_MAX_ATTEMPTS: advanced.get(CONF_MAX_ATTEMPTS, DEFAULT_MAX_ATTEMPTS),
-        CONF_FEATURE_POLICY: user_input.get(
-            CONF_FEATURE_POLICY, DEFAULT_FEATURE_POLICY
+        CONF_FEATURE_POLICY: advanced.get(
+            CONF_FEATURE_POLICY,
+            user_input.get(CONF_FEATURE_POLICY, DEFAULT_FEATURE_POLICY),
         ),
     }
 

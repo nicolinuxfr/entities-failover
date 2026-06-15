@@ -10,20 +10,16 @@ VERSION: Final = "0.1.0"
 
 CONF_DOMAIN: Final = "domain"
 CONF_SOURCES: Final = "sources"
-CONF_AVAILABILITY_STRATEGY: Final = "availability_strategy"
 CONF_COMMAND_VALIDATION: Final = "command_validation"
 CONF_CONFIRMATION_TIMEOUT: Final = "confirmation_timeout"
 CONF_FAILURE_COOLDOWN: Final = "failure_cooldown"
 CONF_RECOVERY_STABILITY: Final = "recovery_stability"
-CONF_MAX_ATTEMPTS: Final = "max_attempts"
 CONF_FEATURE_POLICY: Final = "feature_policy"
 
-DEFAULT_AVAILABILITY_STRATEGY: Final = "simple"
 DEFAULT_COMMAND_VALIDATION: Final = "service_call"
 DEFAULT_CONFIRMATION_TIMEOUT: Final = 10.0
 DEFAULT_FAILURE_COOLDOWN: Final = 60.0
 DEFAULT_RECOVERY_STABILITY: Final = 30.0
-DEFAULT_MAX_ATTEMPTS: Final = 3
 DEFAULT_FEATURE_POLICY: Final = "intersection"
 DEFAULT_REPAIRS_DELAY: Final = 300.0
 
@@ -39,8 +35,7 @@ SERVICE_CLEAR_FAILURES: Final = "clear_failures"
 
 SUBENTRY_TYPE_FAILOVER: Final = "failover"
 
-AVAILABILITY_STRATEGIES: Final = ["simple", "home_assistant"]
-COMMAND_VALIDATION_MODES: Final = ["none", "service_call", "state_confirmation"]
+COMMAND_VALIDATION_MODES: Final = ["service_call", "state_confirmation"]
 FEATURE_POLICIES: Final = ["intersection", "active_source"]
 
 COMMANDABLE_DOMAINS: Final = [

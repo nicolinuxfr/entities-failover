@@ -57,41 +57,37 @@ Defaults:
 
 - Recovery stability: 30 seconds
 - Failure cooldown: 60 seconds
-- Command validation: service call
-- Feature policy: intersection
+- Command verification: retry if the service call fails
+- Exposed features: features shared by every source
 
-## Availability Strategies
+## Source Availability
 
-Simple availability treats a source as usable when it exists, is not
+Entity Failover treats a source as usable when it exists, is not
 `unavailable`, is not `unknown`, and is not temporarily excluded.
-
-Home Assistant availability treats a source as usable when its state exists and
-is not `unavailable`. For read-only domains, `unknown` may remain acceptable.
 
 Entity Failover does not treat an old `last_changed` as a failure. A switch can
 stay off for months and still be healthy.
 
-## Command Validation
+## Command Verification
 
-`none` considers a command successful if the service call does not raise.
+By default, Entity Failover retries another source when the active source
+service call raises an error.
 
-`service_call` retries another source when a source service call raises.
-
-`state_confirmation` is advanced and experimental. It waits for a state that is
+State confirmation is advanced and experimental. It waits for a state that is
 consistent with the command when that can be done reliably. When a command
-cannot be confirmed safely, Entity Failover falls back to `service_call`
-behavior rather than inventing a failure.
+cannot be confirmed safely, Entity Failover falls back to service-call behavior
+rather than inventing a failure.
 
 State confirmation cannot guarantee that real hardware acted. It can only
 confirm what the source integration publishes back to Home Assistant.
 
 ## Feature Policy
 
-`intersection` announces only features common to all configured sources. This is
-the default and is the most stable for dashboards and automations.
+The default policy announces only features common to all configured sources.
+This is the most stable behavior for dashboards and automations.
 
-`active_source` mirrors the currently active source features. This can expose
-more capabilities but may change after a failover.
+The active-source policy mirrors the currently active source features. This can
+expose more capabilities but may change after a failover.
 
 ## Diagnostics
 

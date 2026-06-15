@@ -11,36 +11,24 @@ from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import CONF_NAME
 
 from .const import (
-    CONF_AVAILABILITY_STRATEGY,
     CONF_COMMAND_VALIDATION,
     CONF_CONFIRMATION_TIMEOUT,
     CONF_DOMAIN,
     CONF_FAILURE_COOLDOWN,
     CONF_FEATURE_POLICY,
-    CONF_MAX_ATTEMPTS,
     CONF_RECOVERY_STABILITY,
     CONF_SOURCES,
-    DEFAULT_AVAILABILITY_STRATEGY,
     DEFAULT_COMMAND_VALIDATION,
     DEFAULT_CONFIRMATION_TIMEOUT,
     DEFAULT_FAILURE_COOLDOWN,
     DEFAULT_FEATURE_POLICY,
-    DEFAULT_MAX_ATTEMPTS,
     DEFAULT_RECOVERY_STABILITY,
 )
-
-
-class AvailabilityStrategy(StrEnum):
-    """Source availability strategies."""
-
-    SIMPLE = "simple"
-    HOME_ASSISTANT = "home_assistant"
 
 
 class CommandValidation(StrEnum):
     """Command validation modes."""
 
-    NONE = "none"
     SERVICE_CALL = "service_call"
     STATE_CONFIRMATION = "state_confirmation"
 
@@ -61,12 +49,10 @@ class FailoverConfig:
     name: str
     domain: str
     sources: tuple[str, ...]
-    availability_strategy: AvailabilityStrategy = AvailabilityStrategy.SIMPLE
     command_validation: CommandValidation = CommandValidation.SERVICE_CALL
     confirmation_timeout: float = DEFAULT_CONFIRMATION_TIMEOUT
     failure_cooldown: float = DEFAULT_FAILURE_COOLDOWN
     recovery_stability: float = DEFAULT_RECOVERY_STABILITY
-    max_attempts: int = DEFAULT_MAX_ATTEMPTS
     feature_policy: FeaturePolicy = FeaturePolicy.INTERSECTION
     subentry_id: str | None = None
 
@@ -79,16 +65,14 @@ class FailoverConfig:
         """Create normalized config from a config subentry."""
 
         data = subentry.data
+        sources = tuple(str(source) for source in data[CONF_SOURCES])
         return cls(
             entry_id=entry.entry_id,
             subentry_id=subentry.subentry_id,
             unique_id=subentry.unique_id or subentry.subentry_id,
             name=str(data.get(CONF_NAME, subentry.title)),
             domain=str(data[CONF_DOMAIN]),
-            sources=tuple(str(source) for source in data[CONF_SOURCES]),
-            availability_strategy=AvailabilityStrategy(
-                data.get(CONF_AVAILABILITY_STRATEGY, DEFAULT_AVAILABILITY_STRATEGY)
-            ),
+            sources=sources,
             command_validation=CommandValidation(
                 data.get(CONF_COMMAND_VALIDATION, DEFAULT_COMMAND_VALIDATION)
             ),
@@ -101,7 +85,6 @@ class FailoverConfig:
             recovery_stability=float(
                 data.get(CONF_RECOVERY_STABILITY, DEFAULT_RECOVERY_STABILITY)
             ),
-            max_attempts=int(data.get(CONF_MAX_ATTEMPTS, DEFAULT_MAX_ATTEMPTS)),
             feature_policy=FeaturePolicy(
                 data.get(CONF_FEATURE_POLICY, DEFAULT_FEATURE_POLICY)
             ),
@@ -117,12 +100,10 @@ class FailoverConfig:
             "name": self.name,
             "domain": self.domain,
             "sources": list(self.sources),
-            "availability_strategy": self.availability_strategy.value,
             "command_validation": self.command_validation.value,
             "confirmation_timeout": self.confirmation_timeout,
             "failure_cooldown": self.failure_cooldown,
             "recovery_stability": self.recovery_stability,
-            "max_attempts": self.max_attempts,
             "feature_policy": self.feature_policy.value,
         }
 

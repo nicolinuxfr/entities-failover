@@ -8,16 +8,22 @@
         "title": "Create failover entity",
         "description": "Select at least two source entities from the same domain. Their order is the failover priority.",
         "data": {
-          "name": "Synthetic device name",
-          "sources": "Ordered source entities",
-          "availability_strategy": "Availability strategy",
+          "name": "Failover entity name",
+          "sources": "Sources, in priority order",
           "recovery_stability": "Stability delay before returning to a higher-priority source",
           "failure_cooldown": "Temporary exclusion duration after a failure",
-          "feature_policy": "Supported features policy",
-          "advanced": "Advanced settings",
-          "command_validation": "Command validation",
-          "confirmation_timeout": "Maximum confirmation delay",
-          "max_attempts": "Maximum attempts"
+          "feature_policy": "Features exposed by the entity",
+          "advanced": "Advanced behavior",
+          "command_validation": "Command verification",
+          "confirmation_timeout": "Maximum confirmation delay"
+        },
+        "data_description": {
+          "sources": "The first available source is used. If it fails, Entity Failover switches to the next one.",
+          "recovery_stability": "A higher-priority source must stay available for this long before becoming active again.",
+          "failure_cooldown": "After a command error, the failed source is ignored for this long.",
+          "feature_policy": "Choose whether the entity exposes only features shared by every source, or features from the active source.",
+          "command_validation": "Determines when a command counts as successful and when another source should be tried.",
+          "confirmation_timeout": "Used only with state confirmation."
         }
       }
     },
@@ -45,32 +51,44 @@
           "title": "Add failover entity",
           "description": "Select at least two source entities from the same domain. Their order is the failover priority.",
           "data": {
-            "name": "Synthetic device name",
-            "sources": "Ordered source entities",
-            "availability_strategy": "Availability strategy",
+            "name": "Failover entity name",
+            "sources": "Sources, in priority order",
             "recovery_stability": "Stability delay before returning to a higher-priority source",
             "failure_cooldown": "Temporary exclusion duration after a failure",
-            "feature_policy": "Supported features policy",
-            "advanced": "Advanced settings",
-            "command_validation": "Command validation",
-            "confirmation_timeout": "Maximum confirmation delay",
-            "max_attempts": "Maximum attempts"
+            "feature_policy": "Features exposed by the entity",
+            "advanced": "Advanced behavior",
+            "command_validation": "Command verification",
+            "confirmation_timeout": "Maximum confirmation delay"
+          },
+          "data_description": {
+            "sources": "The first available source is used. If it fails, Entity Failover switches to the next one.",
+            "recovery_stability": "A higher-priority source must stay available for this long before becoming active again.",
+            "failure_cooldown": "After a command error, the failed source is ignored for this long.",
+            "feature_policy": "Choose whether the entity exposes only features shared by every source, or features from the active source.",
+            "command_validation": "Determines when a command counts as successful and when another source should be tried.",
+            "confirmation_timeout": "Used only with state confirmation."
           }
         },
         "reconfigure": {
           "title": "Update failover entity",
           "description": "Update sources and failover behavior.",
           "data": {
-            "name": "Synthetic device name",
-            "sources": "Ordered source entities",
-            "availability_strategy": "Availability strategy",
+            "name": "Failover entity name",
+            "sources": "Sources, in priority order",
             "recovery_stability": "Stability delay before returning to a higher-priority source",
             "failure_cooldown": "Temporary exclusion duration after a failure",
-            "feature_policy": "Supported features policy",
-            "advanced": "Advanced settings",
-            "command_validation": "Command validation",
-            "confirmation_timeout": "Maximum confirmation delay",
-            "max_attempts": "Maximum attempts"
+            "feature_policy": "Features exposed by the entity",
+            "advanced": "Advanced behavior",
+            "command_validation": "Command verification",
+            "confirmation_timeout": "Maximum confirmation delay"
+          },
+          "data_description": {
+            "sources": "The first available source is used. If it fails, Entity Failover switches to the next one.",
+            "recovery_stability": "A higher-priority source must stay available for this long before becoming active again.",
+            "failure_cooldown": "After a command error, the failed source is ignored for this long.",
+            "feature_policy": "Choose whether the entity exposes only features shared by every source, or features from the active source.",
+            "command_validation": "Determines when a command counts as successful and when another source should be tried.",
+            "confirmation_timeout": "Used only with state confirmation."
           }
         }
       }
@@ -93,6 +111,20 @@
         "entity_id": {
           "name": "Entity"
         }
+      }
+    }
+  },
+  "selector": {
+    "feature_policy": {
+      "options": {
+        "intersection": "Features shared by every source",
+        "active_source": "Features from the active source"
+      }
+    },
+    "command_validation": {
+      "options": {
+        "service_call": "Retry if the service call fails",
+        "state_confirmation": "Wait for state confirmation"
       }
     }
   }

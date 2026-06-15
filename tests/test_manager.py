@@ -23,7 +23,6 @@ def _config(**overrides):
         "recovery_stability": 30,
         "failure_cooldown": 60,
         "confirmation_timeout": 5,
-        "max_attempts": 3,
         "feature_policy": FeaturePolicy.INTERSECTION,
     }
     data.update(overrides)
