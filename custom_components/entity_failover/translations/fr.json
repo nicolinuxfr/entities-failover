@@ -3,6 +3,24 @@
     "abort": {
       "already_configured": "Entity Failover est déjà configuré. Ajoutez de nouvelles entités depuis la page de l'intégration."
     },
+    "step": {
+      "user": {
+        "title": "Créer une entité de secours",
+        "description": "Sélectionnez au moins deux entités sources du même domaine. L'ordre définit la priorité.",
+        "data": {
+          "name": "Nom de l'appareil synthétique",
+          "sources": "Entités sources ordonnées",
+          "availability_strategy": "Stratégie de disponibilité",
+          "recovery_stability": "Délai de stabilité avant retour vers une source prioritaire",
+          "failure_cooldown": "Durée d'exclusion temporaire après échec",
+          "feature_policy": "Politique des fonctionnalités prises en charge",
+          "advanced": "Paramètres avancés",
+          "command_validation": "Validation des commandes",
+          "confirmation_timeout": "Délai maximal de confirmation",
+          "max_attempts": "Nombre maximal de tentatives"
+        }
+      }
+    },
     "error": {
       "too_few_sources": "Sélectionnez au moins deux entités sources.",
       "unsupported_domain": "Ce domaine n'est pas pris en charge.",

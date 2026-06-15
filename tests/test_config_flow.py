@@ -84,33 +84,80 @@ def test_advanced_settings_are_collapsed() -> None:
 
 @pytest.mark.asyncio
 async def test_config_flow_creates_entry(hass) -> None:
-    """The UI flow creates the service entry."""
+    """The UI flow creates the service entry with a first failover subentry."""
+
+    hass.states.async_set("switch.one", "on")
+    hass.states.async_set("switch.two", "off")
 
     flow = EntityFailoverConfigFlow()
     flow.hass = hass
     flow.context = {"source": "user"}
 
     result = await flow.async_step_user()
+    assert result["type"] == "form"
 
+    result = await flow.async_step_user(
+        {
+            "name": "Kitchen Switch",
+            CONF_SOURCES: ["switch.one", "switch.two"],
+            CONF_AVAILABILITY_STRATEGY: "simple",
+            CONF_RECOVERY_STABILITY: 30,
+            CONF_FAILURE_COOLDOWN: 60,
+            CONF_FEATURE_POLICY: "intersection",
+            ADVANCED_SECTION: {
+                CONF_COMMAND_VALIDATION: "service_call",
+                CONF_CONFIRMATION_TIMEOUT: 10,
+                CONF_MAX_ATTEMPTS: 3,
+            },
+        },
+    )
     assert result["type"] == "create_entry"
     assert result["title"] == NAME
     assert result["data"] == {}
-    assert list(result["subentries"]) == []
+    subentry = next(iter(result["subentries"]))
+    assert subentry["title"] == "Kitchen Switch"
+    assert subentry["subentry_type"] == SUBENTRY_TYPE_FAILOVER
+    assert subentry["data"][CONF_DOMAIN] == "switch"
 
 
 @pytest.mark.asyncio
 async def test_config_flow_manager_creates_entry_from_single_form(hass) -> None:
-    """Home Assistant's flow manager creates a service entry."""
+    """Home Assistant's flow manager creates a service entry with a subentry."""
+
+    hass.states.async_set("switch.one", "on")
+    hass.states.async_set("switch.two", "off")
 
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
         context={"source": "user"},
     )
+    assert result["type"] == "form"
+    assert result["last_step"] is True
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            "name": "Kitchen Switch",
+            CONF_SOURCES: ["switch.one", "switch.two"],
+            CONF_AVAILABILITY_STRATEGY: "simple",
+            CONF_RECOVERY_STABILITY: 30,
+            CONF_FAILURE_COOLDOWN: 60,
+            CONF_FEATURE_POLICY: "intersection",
+            ADVANCED_SECTION: {
+                CONF_COMMAND_VALIDATION: "service_call",
+                CONF_CONFIRMATION_TIMEOUT: 10,
+                CONF_MAX_ATTEMPTS: 3,
+            },
+        },
+    )
 
     assert result["type"] == "create_entry"
     entry = result["result"]
     assert entry.title == NAME
-    assert len(entry.subentries) == 0
+    assert len(entry.subentries) == 1
+    subentry = next(iter(entry.subentries.values()))
+    assert subentry.title == "Kitchen Switch"
+    assert subentry.data[CONF_DOMAIN] == "switch"
     assert SUBENTRY_TYPE_FAILOVER in entry.supported_subentry_types
 
 

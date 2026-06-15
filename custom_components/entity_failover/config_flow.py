@@ -63,15 +63,33 @@ class EntityFailoverConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self,
         user_input: dict[str, Any] | None = None,
     ) -> config_entries.ConfigFlowResult:
-        """Create the service entry."""
+        """Create the service entry and first failover subentry."""
 
-        if self._async_current_entries():
+        if user_input is None and self._async_current_entries():
             return self.async_abort(reason="already_configured")
-        await self.async_set_unique_id(DOMAIN)
-        self._abort_if_unique_id_configured()
-        return self.async_create_entry(
-            title=NAME,
-            data={},
+
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            sources = normalize_sources(user_input[CONF_SOURCES])
+            domain = entity_domain(sources[0]) if sources else ""
+            error = _validate_sources(self.hass, domain, sources, None)
+            if error is None:
+                await self.async_set_unique_id(DOMAIN)
+                self._abort_if_unique_id_configured()
+                return self.async_create_entry(
+                    title=NAME,
+                    data={},
+                    subentries=[
+                        _subentry_data_from_user_input(user_input, domain, sources)
+                    ],
+                )
+            errors[CONF_SOURCES] = error
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=_user_schema(user_input),
+            errors=errors,
+            last_step=True,
         )
 
 

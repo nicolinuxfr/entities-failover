@@ -3,6 +3,24 @@
     "abort": {
       "already_configured": "Entity Failover is already configured. Add new failover entities from the integration page."
     },
+    "step": {
+      "user": {
+        "title": "Create failover entity",
+        "description": "Select at least two source entities from the same domain. Their order is the failover priority.",
+        "data": {
+          "name": "Synthetic device name",
+          "sources": "Ordered source entities",
+          "availability_strategy": "Availability strategy",
+          "recovery_stability": "Stability delay before returning to a higher-priority source",
+          "failure_cooldown": "Temporary exclusion duration after a failure",
+          "feature_policy": "Supported features policy",
+          "advanced": "Advanced settings",
+          "command_validation": "Command validation",
+          "confirmation_timeout": "Maximum confirmation delay",
+          "max_attempts": "Maximum attempts"
+        }
+      }
+    },
     "error": {
       "too_few_sources": "Select at least two source entities.",
       "unsupported_domain": "This domain is not supported.",
