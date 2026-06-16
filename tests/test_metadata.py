@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+import struct
 import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "custom_components" / "entity_failover" / "manifest.json"
+BRAND = ROOT / "custom_components" / "entity_failover" / "brand"
 HACS = ROOT / "hacs.json"
 PYPROJECT = ROOT / "pyproject.toml"
 REPOSITORY_URL = "https://github.com/nicolinuxfr/entities-failover"
@@ -62,3 +64,29 @@ def test_single_hacs_integration_directory() -> None:
     ]
 
     assert [path.name for path in integrations] == ["entity_failover"]
+
+
+def test_local_brand_icons_are_present() -> None:
+    """The integration ships local brand icons for Home Assistant and HACS."""
+
+    assert (BRAND / "icon.svg").is_file()
+
+    expected_sizes = {
+        "icon.png": (256, 256),
+        "icon@2x.png": (512, 512),
+    }
+
+    for filename, expected_size in expected_sizes.items():
+        image = BRAND / filename
+
+        assert image.is_file()
+        assert _png_size(image) == expected_size
+
+
+def _png_size(path: Path) -> tuple[int, int]:
+    """Return the dimensions from a PNG IHDR chunk."""
+
+    data = path.read_bytes()
+    assert data.startswith(b"\x89PNG\r\n\x1a\n")
+    assert data[12:16] == b"IHDR"
+    return struct.unpack(">II", data[16:24])

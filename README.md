@@ -24,6 +24,10 @@ repository of type Integration, restart Home Assistant, then add
 This integration is local, has no Supervisor dependency, and does not require
 YAML configuration.
 
+The integration ships local brand images in
+`custom_components/entity_failover/brand/`, which Home Assistant 2026.3 and
+newer can expose to the UI and HACS.
+
 ## Supported Domains
 
 Commandable domains:

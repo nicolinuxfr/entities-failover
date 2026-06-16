@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Entity Failover icon</title>
+  <desc id="desc">Two source nodes connected to one output node.</desc>
+  <rect width="256" height="256" rx="48" fill="#0b6f8f"/>
+
+  <path d="M76 76h54c31 0 46 22 61 48" fill="none" stroke="#dff8ff" stroke-width="15" stroke-linecap="round"/>
+  <path d="M76 180h54c31 0 46-22 61-48" fill="none" stroke="#8bd7ee" stroke-width="15" stroke-linecap="round"/>
+
+  <circle cx="68" cy="76" r="25" fill="#ffffff"/>
+  <circle cx="68" cy="180" r="25" fill="#8bd7ee"/>
+  <circle cx="198" cy="128" r="29" fill="#ffb545"/>
+  <circle cx="68" cy="76" r="10" fill="#0b6f8f"/>
+  <circle cx="68" cy="180" r="10" fill="#0b6f8f"/>
+  <circle cx="198" cy="128" r="11" fill="#0b6f8f"/>
+</svg>
