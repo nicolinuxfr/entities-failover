@@ -9,11 +9,11 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import EntityFailoverConfigEntry
-from .entity import (
+from .entities import (
     FailoverActiveSourceSensor,
     FailoverClearFailuresButton,
     FailoverDegradedBinarySensor,
-    FailoverMainEntity,
+    main_entity_for_manager,
 )
 
 
@@ -28,7 +28,7 @@ async def async_setup_platform_entry(
     for manager in entry.runtime_data.values():
         entities = []
         if manager.config.domain == platform_domain:
-            entities.append(FailoverMainEntity(manager))
+            entities.append(main_entity_for_manager(manager))
         if platform_domain == "sensor":
             entities.append(FailoverActiveSourceSensor(manager))
         elif platform_domain == "binary_sensor":

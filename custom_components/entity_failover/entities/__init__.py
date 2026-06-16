@@ -1,16 +1,16 @@
-"""Compatibility exports for Entity Failover entity classes."""
+"""Entity classes for Entity Failover."""
 
-from __future__ import annotations
-
-from .entities import (
+from .diagnostics import (
     FailoverActiveSourceSensor,
     FailoverClearFailuresButton,
     FailoverDegradedBinarySensor,
+)
+from .domains import (
     FailoverGenericMainEntity,
     FailoverLightEntity,
     FailoverNumberEntity,
+    main_entity_for_manager,
 )
-from .entities.domains import FailoverGenericMainEntity as FailoverMainEntity
 
 __all__ = [
     "FailoverActiveSourceSensor",
@@ -18,6 +18,6 @@ __all__ = [
     "FailoverDegradedBinarySensor",
     "FailoverGenericMainEntity",
     "FailoverLightEntity",
-    "FailoverMainEntity",
     "FailoverNumberEntity",
+    "main_entity_for_manager",
 ]
