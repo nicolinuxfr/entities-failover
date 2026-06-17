@@ -18,6 +18,7 @@ class FailoverActiveSourceSensor(FailoverEntityMixin, SensorEntity):
     """Diagnostic sensor exposing the active source entity id."""
 
     _attr_icon = "mdi:source-branch"
+    _attr_translation_key = "active_source"
 
     def __init__(self, manager: FailoverManager) -> None:
         """Initialize the sensor."""
@@ -59,6 +60,7 @@ class FailoverDegradedBinarySensor(FailoverEntityMixin, BinarySensorEntity):
     """Diagnostic binary sensor exposing degraded status."""
 
     _attr_icon = "mdi:alert-circle-outline"
+    _attr_translation_key = "fallback_active"
 
     def __init__(self, manager: FailoverManager) -> None:
         """Initialize the binary sensor."""
@@ -88,6 +90,7 @@ class FailoverClearFailuresButton(FailoverEntityMixin, ButtonEntity):
     """Button that clears temporary source failures."""
 
     _attr_icon = "mdi:refresh-alert"
+    _attr_translation_key = "clear_failures"
 
     def __init__(self, manager: FailoverManager) -> None:
         """Initialize the button."""

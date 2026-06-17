@@ -100,10 +100,27 @@
       "description": "Toutes les entités sources configurées sont indisponibles ou exclues : {sources}."
     }
   },
+  "entity": {
+    "button": {
+      "clear_failures": {
+        "name": "Réactiver les sources exclues"
+      }
+    },
+    "binary_sensor": {
+      "fallback_active": {
+        "name": "Secours actif"
+      }
+    },
+    "sensor": {
+      "active_source": {
+        "name": "Source active"
+      }
+    }
+  },
   "services": {
     "clear_failures": {
-      "name": "Effacer les échecs",
-      "description": "Efface les exclusions temporaires et recalcule immédiatement la source active.",
+      "name": "Réactiver les sources exclues",
+      "description": "Réactive les sources temporairement exclues et recalcule immédiatement la source active.",
       "fields": {
         "entry_id": {
           "name": "ID de config entry"

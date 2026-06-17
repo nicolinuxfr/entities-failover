@@ -100,9 +100,26 @@
       "description": "All configured source entities are unavailable or excluded: {sources}."
     }
   },
+  "entity": {
+    "button": {
+      "clear_failures": {
+        "name": "Retry excluded sources"
+      }
+    },
+    "binary_sensor": {
+      "fallback_active": {
+        "name": "Fallback active"
+      }
+    },
+    "sensor": {
+      "active_source": {
+        "name": "Active source"
+      }
+    }
+  },
   "services": {
     "clear_failures": {
-      "name": "Clear failures",
+      "name": "Retry excluded sources",
       "description": "Clear temporary source exclusions and immediately recalculate the active source.",
       "fields": {
         "entry_id": {
