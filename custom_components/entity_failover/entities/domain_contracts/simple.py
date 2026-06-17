@@ -9,7 +9,7 @@ from homeassistant.components.fan import (
     FanEntity,
     FanEntityFeature,
 )
-from homeassistant.components.remote import RemoteEntity
+from homeassistant.components.remote import RemoteEntity, RemoteEntityFeature
 from homeassistant.components.siren import SirenEntity, SirenEntityFeature
 from homeassistant.components.switch import SwitchEntity
 
@@ -71,6 +71,24 @@ class FailoverFanEntity(FanRouteMixin, ToggleFailoverEntity, FanEntity):
 
 class FailoverRemoteEntity(RemoteRouteMixin, ToggleFailoverEntity, RemoteEntity):
     """Main failover entity for remotes."""
+
+    @property
+    def current_activity(self) -> str | None:
+        """Return the active remote activity."""
+
+        return self._string_attribute("current_activity")
+
+    @property
+    def activity_list(self) -> list[str] | None:
+        """Return the active/source remote activity list."""
+
+        return self._list_attribute("activity_list")
+
+    @property
+    def supported_features(self) -> RemoteEntityFeature:
+        """Return active source supported remote features."""
+
+        return RemoteEntityFeature(super().supported_features)
 
 
 class FailoverSirenEntity(ToggleFailoverEntity, SirenEntity):

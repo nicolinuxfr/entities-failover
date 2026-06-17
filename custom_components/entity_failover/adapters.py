@@ -67,14 +67,18 @@ class DomainAdapter:
 
         states = [hass.states.get(source) for source in sources]
         for attr in self.compatibility_attributes:
-            values = {
-                state.attributes.get(attr)
-                for state in states
-                if state is not None and state.attributes.get(attr) is not None
-            }
-            normalized = {
-                tuple(value) if isinstance(value, list) else value for value in values
-            }
+            values = []
+            for state in states:
+                if state is not None:
+                    val = state.attributes.get(attr)
+                    if val is not None:
+                        values.append(val)
+            normalized = set()
+            for val in values:
+                if isinstance(val, (list, set, tuple)):
+                    normalized.add(tuple(sorted(val)))
+                else:
+                    normalized.add(val)
             if len(normalized) > 1:
                 return f"incompatible_{attr}"
         return None
@@ -88,14 +92,17 @@ class DomainAdapter:
         """Return a confirmation rule for a service call."""
 
         rule = self.confirmation.get(service)
-        if rule is None or rule.unsupported:
-            return CONFIRM_UNSUPPORTED
-        if rule.opposite and before is not None:
-            if before.state == "on":
-                return ConfirmationRule(states=("off",))
-            if before.state == "off":
-                return ConfirmationRule(states=("on",))
-            return CONFIRM_UNSUPPORTED
+        if rule is not None:
+            if rule.unsupported:
+                return CONFIRM_UNSUPPORTED
+            if rule.opposite and before is not None:
+                if before.state == "on":
+                    return ConfirmationRule(states=("off",))
+                if before.state == "off":
+                    return ConfirmationRule(states=("on",))
+                return CONFIRM_UNSUPPORTED
+            return rule
+
         if service == "set_cover_position" and "position" in data:
             return ConfirmationRule(
                 attribute="current_position",
@@ -109,16 +116,10 @@ class DomainAdapter:
         if service == "set_preset_mode" and "preset_mode" in data:
             return ConfirmationRule(attribute="preset_mode")
         if service == "set_value" and "value" in data:
-            if self.domain == "number":
-                return ConfirmationRule(
-                    data_key="value",
-                    state_value=True,
-                    tolerance=0.001,
-                )
             return ConfirmationRule(attribute="value", tolerance=0.001)
         if service in {"select_option", "set_preset_mode"}:
             return ConfirmationRule(attribute="current_option")
-        return rule
+        return CONFIRM_UNSUPPORTED
 
     def confirmation_matches(  # noqa: PLR0911
         self,
@@ -148,13 +149,14 @@ class DomainAdapter:
             return actual is not None
         if actual is None:
             return False
-        if rule.tolerance:
-            try:
-                return abs(float(actual) - float(expected)) <= rule.tolerance
-            except (TypeError, ValueError):
-                pass
-        if isinstance(actual, (int, float)) and isinstance(expected, (int, float)):
-            return abs(float(actual) - float(expected)) <= rule.tolerance
+
+        try:
+            actual_float = float(actual)
+            expected_float = float(expected)
+            return abs(actual_float - expected_float) <= rule.tolerance
+        except (TypeError, ValueError):
+            pass
+
         return actual == expected
 
     def unsupported_service_error(
@@ -178,6 +180,7 @@ def _expected_data_key(attribute: str) -> str:
         "preset_mode": "preset_mode",
         "current_option": "option",
         "value": "value",
+        "state": "value",
     }.get(attribute, attribute)
 
 
@@ -212,16 +215,25 @@ ADAPTERS: dict[str, DomainAdapter] = {
             "async_alarm_arm_custom_bypass": "alarm_arm_custom_bypass",
             "async_alarm_trigger": "alarm_trigger",
         },
+        compatibility_attributes=("supported_features", "code_format"),
         passthrough_attributes=("code_format", "changed_by"),
     ),
-    "air_quality": _adapter("air_quality", read_only=True),
+    "air_quality": _adapter(
+        "air_quality",
+        read_only=True,
+        compatibility_attributes=("unit_of_measurement",),
+    ),
     "binary_sensor": _adapter(
         "binary_sensor",
         read_only=True,
         compatibility_attributes=("device_class",),
         passthrough_attributes=("device_class",),
     ),
-    "button": _adapter("button", {"async_press": "press"}),
+    "button": _adapter(
+        "button",
+        {"async_press": "press"},
+        compatibility_attributes=("device_class",),
+    ),
     "calendar": _adapter("calendar", read_only=True),
     "camera": _adapter("camera", read_only=True),
     "climate": _adapter(
@@ -233,9 +245,16 @@ ADAPTERS: dict[str, DomainAdapter] = {
             "async_set_fan_mode": "set_fan_mode",
             "async_set_humidity": "set_humidity",
             "async_set_swing_mode": "set_swing_mode",
+            "async_set_swing_horizontal_mode": "set_swing_horizontal_mode",
             "async_turn_on": "turn_on",
             "async_turn_off": "turn_off",
+            "async_toggle": "toggle",
         },
+        compatibility_attributes=(
+            "hvac_modes",
+            "supported_features",
+            "temperature_unit",
+        ),
         passthrough_attributes=(
             "current_temperature",
             "temperature",
@@ -249,6 +268,8 @@ ADAPTERS: dict[str, DomainAdapter] = {
             "fan_modes",
             "swing_mode",
             "swing_modes",
+            "swing_horizontal_mode",
+            "swing_horizontal_modes",
             "current_humidity",
             "target_humidity",
         ),
@@ -265,6 +286,7 @@ ADAPTERS: dict[str, DomainAdapter] = {
             "async_stop_cover_tilt": "stop_cover_tilt",
             "async_set_cover_tilt_position": "set_cover_tilt_position",
         },
+        compatibility_attributes=("supported_features", "device_class"),
         passthrough_attributes=(
             "current_position",
             "current_tilt_position",
@@ -290,6 +312,7 @@ ADAPTERS: dict[str, DomainAdapter] = {
     "device_tracker": _adapter(
         "device_tracker",
         read_only=True,
+        compatibility_attributes=("source_type",),
         passthrough_attributes=("source_type", "latitude", "longitude", "gps_accuracy"),
     ),
     "fan": _adapter(
@@ -305,6 +328,11 @@ ADAPTERS: dict[str, DomainAdapter] = {
             "async_set_direction": "set_direction",
             "async_set_preset_mode": "set_preset_mode",
         },
+        compatibility_attributes=(
+            "supported_features",
+            "percentage_step",
+            "preset_modes",
+        ),
         passthrough_attributes=(
             "percentage",
             "percentage_step",
@@ -333,6 +361,11 @@ ADAPTERS: dict[str, DomainAdapter] = {
             "async_set_humidity": "set_humidity",
             "async_set_mode": "set_mode",
         },
+        compatibility_attributes=(
+            "supported_features",
+            "available_modes",
+            "device_class",
+        ),
     ),
     "image": _adapter("image", read_only=True),
     "lawn_mower": _adapter(
@@ -342,6 +375,7 @@ ADAPTERS: dict[str, DomainAdapter] = {
             "async_pause": "pause",
             "async_dock": "dock",
         },
+        compatibility_attributes=("supported_features",),
     ),
     "light": _adapter(
         "light",
@@ -350,6 +384,7 @@ ADAPTERS: dict[str, DomainAdapter] = {
             "async_turn_off": "turn_off",
             "async_toggle": "toggle",
         },
+        compatibility_attributes=("supported_color_modes",),
         passthrough_attributes=(
             "brightness",
             "color_mode",
@@ -374,6 +409,7 @@ ADAPTERS: dict[str, DomainAdapter] = {
             "async_unlock": "unlock",
             "async_open": "open",
         },
+        compatibility_attributes=("supported_features", "code_format"),
         confirmation={
             "lock": ConfirmationRule(states=("locked", "locking")),
             "unlock": ConfirmationRule(states=("unlocked", "unlocking")),
@@ -389,17 +425,26 @@ ADAPTERS: dict[str, DomainAdapter] = {
             "async_media_play": "media_play",
             "async_media_pause": "media_pause",
             "async_media_stop": "media_stop",
+            "async_media_play_pause": "media_play_pause",
             "async_media_next_track": "media_next_track",
             "async_media_previous_track": "media_previous_track",
+            "async_media_seek": "media_seek",
+            "async_volume_up": "volume_up",
+            "async_volume_down": "volume_down",
             "async_set_volume_level": "volume_set",
             "async_mute_volume": "volume_mute",
             "async_select_source": "select_source",
             "async_select_sound_mode": "select_sound_mode",
             "async_play_media": "play_media",
             "async_clear_playlist": "clear_playlist",
-            "async_shuffle_set": "shuffle_set",
-            "async_repeat_set": "repeat_set",
+            "async_set_shuffle": "shuffle_set",
+            "async_set_repeat": "repeat_set",
         },
+        compatibility_attributes=(
+            "supported_features",
+            "source_list",
+            "sound_mode_list",
+        ),
         passthrough_attributes=(
             "media_title",
             "media_artist",
@@ -416,6 +461,14 @@ ADAPTERS: dict[str, DomainAdapter] = {
     "number": _adapter(
         "number",
         {"async_set_native_value": "set_value"},
+        compatibility_attributes=(
+            "min",
+            "max",
+            "step",
+            "mode",
+            "unit_of_measurement",
+            "device_class",
+        ),
         passthrough_attributes=("min", "max", "step", "mode", "unit_of_measurement"),
         confirmation={
             "set_value": ConfirmationRule(
@@ -435,11 +488,13 @@ ADAPTERS: dict[str, DomainAdapter] = {
             "async_learn_command": "learn_command",
             "async_delete_command": "delete_command",
         },
+        compatibility_attributes=("supported_features", "activity_list"),
     ),
     "scene": _adapter("scene", {"async_activate": "turn_on"}),
     "select": _adapter(
         "select",
         {"async_select_option": "select_option"},
+        compatibility_attributes=("options",),
         passthrough_attributes=("options", "current_option"),
         confirmation={"select_option": ConfirmationRule(attribute="current_option")},
     ),
@@ -462,6 +517,7 @@ ADAPTERS: dict[str, DomainAdapter] = {
             "async_turn_off": "turn_off",
             "async_toggle": "toggle",
         },
+        compatibility_attributes=("supported_features", "available_tones"),
         confirmation={
             "turn_on": ConfirmationRule(states=("on",)),
             "turn_off": ConfirmationRule(states=("off",)),
@@ -484,6 +540,7 @@ ADAPTERS: dict[str, DomainAdapter] = {
     "text": _adapter(
         "text",
         {"async_set_value": "set_value"},
+        compatibility_attributes=("min", "max", "mode", "pattern"),
         passthrough_attributes=("min", "max", "mode", "pattern"),
     ),
     "time": _adapter(
@@ -497,6 +554,7 @@ ADAPTERS: dict[str, DomainAdapter] = {
             "async_skip": "skip",
             "async_clear_skipped": "clear_skipped",
         },
+        compatibility_attributes=("supported_features", "device_class"),
         passthrough_attributes=(
             "installed_version",
             "latest_version",
@@ -515,6 +573,7 @@ ADAPTERS: dict[str, DomainAdapter] = {
             "async_set_fan_speed": "set_fan_speed",
             "async_send_command": "send_command",
         },
+        compatibility_attributes=("supported_features", "fan_speed_list"),
         passthrough_attributes=("battery_level", "fan_speed", "fan_speed_list"),
     ),
     "valve": _adapter(
@@ -525,7 +584,12 @@ ADAPTERS: dict[str, DomainAdapter] = {
             "async_set_valve_position": "set_valve_position",
             "async_stop_valve": "stop_valve",
         },
-        passthrough_attributes=("current_position", "device_class"),
+        compatibility_attributes=(
+            "supported_features",
+            "device_class",
+            "reports_position",
+        ),
+        passthrough_attributes=("current_position", "device_class", "reports_position"),
     ),
     "water_heater": _adapter(
         "water_heater",
@@ -533,9 +597,16 @@ ADAPTERS: dict[str, DomainAdapter] = {
             "async_set_temperature": "set_temperature",
             "async_set_operation_mode": "set_operation_mode",
             "async_set_away_mode": "set_away_mode",
+            "async_turn_away_mode_on": "set_away_mode",
+            "async_turn_away_mode_off": "set_away_mode",
             "async_turn_on": "turn_on",
             "async_turn_off": "turn_off",
         },
+        compatibility_attributes=(
+            "supported_features",
+            "operation_list",
+            "temperature_unit",
+        ),
         passthrough_attributes=(
             "current_temperature",
             "temperature",
@@ -549,6 +620,7 @@ ADAPTERS: dict[str, DomainAdapter] = {
     "weather": _adapter(
         "weather",
         read_only=True,
+        compatibility_attributes=("temperature_unit",),
         passthrough_attributes=(
             "temperature",
             "temperature_unit",

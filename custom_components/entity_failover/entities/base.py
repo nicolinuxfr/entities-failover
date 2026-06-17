@@ -73,6 +73,19 @@ class FailoverEntityMixin:
         for key in self.manager.adapter.passthrough_attributes:
             if key not in native_attrs and key in active_state.attributes:
                 attrs[key] = active_state.attributes[key]
+
+        # Prevent collisions with keys produced by state_attributes
+        # or capability_attributes
+        excluded_keys = set()
+        if hasattr(self, "state_attributes") and self.state_attributes:
+            excluded_keys.update(self.state_attributes)
+        if hasattr(self, "capability_attributes") and self.capability_attributes:
+            excluded_keys.update(self.capability_attributes)
+
+        for key in list(attrs):
+            if key in excluded_keys:
+                attrs.pop(key)
+
         return attrs
 
     def _native_platform_attribute_keys(self) -> set[str]:
@@ -143,7 +156,10 @@ class FailoverEntityMixin:
     def _active_or_source_attribute(self, attribute: str) -> Any:
         """Return active source attribute, falling back to any source."""
 
-        return self._active_attribute(attribute) or self._source_attribute(attribute)
+        value = self._active_attribute(attribute)
+        if value is not None:
+            return value
+        return self._source_attribute(attribute)
 
     def _tuple_attribute(self, attribute: str) -> Any:
         """Return an active source sequence attribute as a tuple."""
@@ -185,6 +201,89 @@ class FailoverEntityMixin:
         try:
             return float(value)
         except (TypeError, ValueError):
+            return default
+
+    def _native_int_state(self) -> int | None:
+        """Return the active source state as an int when possible."""
+
+        value = self._native_state_value()
+        if value is None:
+            return None
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            return None
+
+    def _native_bool_state(self) -> bool | None:
+        """Return the active source state as a bool when possible."""
+
+        value = self._native_state_value()
+        if value is None:
+            return None
+        if value.lower() in ("true", "on", "yes", "1"):
+            return True
+        if value.lower() in ("false", "off", "no", "0"):
+            return False
+        return None
+
+    def _int_attribute(self, attribute: str, default: int | None = None) -> int | None:
+        """Return a numeric integer active/source attribute."""
+
+        value = self._active_or_source_attribute(attribute)
+        if value is None:
+            return default
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            return default
+
+    def _bool_attribute(
+        self, attribute: str, default: bool | None = None
+    ) -> bool | None:
+        """Return a boolean active/source attribute."""
+
+        value = self._active_or_source_attribute(attribute)
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        if str(value).lower() in ("true", "on", "yes", "1"):
+            return True
+        if str(value).lower() in ("false", "off", "no", "0"):
+            return False
+        return default
+
+    def _string_attribute(
+        self, attribute: str, default: str | None = None
+    ) -> str | None:
+        """Return a string active/source attribute."""
+
+        value = self._active_or_source_attribute(attribute)
+        if value is None:
+            return default
+        return str(value)
+
+    def _list_attribute(self, attribute: str) -> list[Any] | None:
+        """Return an active/source attribute as a list."""
+
+        value = self._active_or_source_attribute(attribute)
+        if value is None:
+            return None
+        if isinstance(value, list):
+            return value
+        return list(value)
+
+    def _enum_attribute(
+        self, attribute: str, enum_cls: Any, default: Any = None
+    ) -> Any:
+        """Return an active/source attribute converted to a specific Enum."""
+
+        value = self._active_or_source_attribute(attribute)
+        if value is None:
+            return default
+        try:
+            return enum_cls(value)
+        except ValueError:
             return default
 
     def _active_state(self) -> State | None:

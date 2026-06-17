@@ -8,6 +8,21 @@ from typing import Any
 class ClimateRouteMixin:
     """Route climate services."""
 
+    async def async_turn_on(self) -> None:
+        """Route climate turn_on."""
+
+        await self._async_route("turn_on")
+
+    async def async_turn_off(self) -> None:
+        """Route climate turn_off."""
+
+        await self._async_route("turn_off")
+
+    async def async_toggle(self) -> None:
+        """Route climate toggle."""
+
+        await self._async_route("toggle")
+
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Route set_temperature."""
 
@@ -33,6 +48,14 @@ class ClimateRouteMixin:
 
         await self._async_route("set_swing_mode", {"swing_mode": swing_mode})
 
+    async def async_set_swing_horizontal_mode(self, swing_horizontal_mode: str) -> None:
+        """Route climate set_swing_horizontal_mode."""
+
+        await self._async_route(
+            "set_swing_horizontal_mode",
+            {"swing_horizontal_mode": swing_horizontal_mode},
+        )
+
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Route preset mode."""
 
@@ -56,6 +79,16 @@ class HumidifierRouteMixin:
 class WaterHeaterRouteMixin:
     """Route water heater services."""
 
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Route water heater turn_on."""
+
+        await self._async_route("turn_on", kwargs)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Route water heater turn_off."""
+
+        await self._async_route("turn_off", kwargs)
+
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Route set_temperature."""
 
@@ -72,3 +105,13 @@ class WaterHeaterRouteMixin:
         """Route water_heater set_away_mode."""
 
         await self._async_route("set_away_mode", {"away_mode": away_mode})
+
+    async def async_turn_away_mode_on(self) -> None:
+        """Route water heater away mode on."""
+
+        await self._async_route("set_away_mode", {"away_mode": True})
+
+    async def async_turn_away_mode_off(self) -> None:
+        """Route water heater away mode off."""
+
+        await self._async_route("set_away_mode", {"away_mode": False})

@@ -8,6 +8,21 @@ from typing import Any
 class MediaPlayerRouteMixin:
     """Route media player services."""
 
+    async def async_turn_on(self) -> None:
+        """Route turn_on."""
+
+        await self._async_route("turn_on")
+
+    async def async_turn_off(self) -> None:
+        """Route turn_off."""
+
+        await self._async_route("turn_off")
+
+    async def async_toggle(self) -> None:
+        """Route toggle."""
+
+        await self._async_route("toggle")
+
     async def async_media_play(self) -> None:
         """Route media_play."""
 
@@ -23,6 +38,11 @@ class MediaPlayerRouteMixin:
 
         await self._async_route("media_stop")
 
+    async def async_media_play_pause(self) -> None:
+        """Route media_play_pause."""
+
+        await self._async_route("media_play_pause")
+
     async def async_media_next_track(self) -> None:
         """Route media_next_track."""
 
@@ -32,6 +52,21 @@ class MediaPlayerRouteMixin:
         """Route media_previous_track."""
 
         await self._async_route("media_previous_track")
+
+    async def async_media_seek(self, position: float) -> None:
+        """Route media_seek."""
+
+        await self._async_route("media_seek", {"seek_position": position})
+
+    async def async_volume_up(self) -> None:
+        """Route volume_up."""
+
+        await self._async_route("volume_up")
+
+    async def async_volume_down(self) -> None:
+        """Route volume_down."""
+
+        await self._async_route("volume_down")
 
     async def async_set_volume_level(self, volume: float) -> None:
         """Route volume_set."""
@@ -73,12 +108,12 @@ class MediaPlayerRouteMixin:
 
         await self._async_route("clear_playlist")
 
-    async def async_shuffle_set(self, shuffle: bool) -> None:
+    async def async_set_shuffle(self, shuffle: bool) -> None:
         """Route shuffle_set."""
 
         await self._async_route("shuffle_set", {"shuffle": shuffle})
 
-    async def async_repeat_set(self, repeat: str) -> None:
+    async def async_set_repeat(self, repeat: str) -> None:
         """Route repeat_set."""
 
         await self._async_route("repeat_set", {"repeat": repeat})

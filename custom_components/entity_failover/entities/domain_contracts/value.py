@@ -80,19 +80,22 @@ class FailoverNumberEntity(
     def native_max_value(self) -> float:
         """Return active/source maximum value."""
 
-        return self._float_attribute("max", DEFAULT_MAX_VALUE) or DEFAULT_MAX_VALUE
+        value = self._float_attribute("max")
+        return value if value is not None else DEFAULT_MAX_VALUE
 
     @property
     def native_min_value(self) -> float:
         """Return active/source minimum value."""
 
-        return self._float_attribute("min", DEFAULT_MIN_VALUE) or DEFAULT_MIN_VALUE
+        value = self._float_attribute("min")
+        return value if value is not None else DEFAULT_MIN_VALUE
 
     @property
     def native_step(self) -> float:
         """Return active/source step."""
 
-        return self._float_attribute("step", DEFAULT_STEP) or DEFAULT_STEP
+        value = self._float_attribute("step")
+        return value if value is not None else DEFAULT_STEP
 
     @property
     def native_unit_of_measurement(self) -> str | None:
