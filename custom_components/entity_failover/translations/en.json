@@ -101,11 +101,6 @@
     }
   },
   "entity": {
-    "button": {
-      "clear_failures": {
-        "name": "Retry excluded sources"
-      }
-    },
     "binary_sensor": {
       "fallback_active": {
         "name": "Fallback active"

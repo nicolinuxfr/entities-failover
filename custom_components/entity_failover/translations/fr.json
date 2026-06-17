@@ -101,11 +101,6 @@
     }
   },
   "entity": {
-    "button": {
-      "clear_failures": {
-        "name": "Réactiver les sources exclues"
-      }
-    },
     "binary_sensor": {
       "fallback_active": {
         "name": "Secours actif"

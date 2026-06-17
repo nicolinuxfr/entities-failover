@@ -86,7 +86,7 @@ SUPPORTED_DOMAINS: Final = sorted(
     COMMANDABLE_DOMAINS + READ_ONLY_DOMAINS + SPECIALIZED_DOMAINS
 )
 
-DIAGNOSTIC_PLATFORMS: Final = ["sensor", "binary_sensor", "button"]
+DIAGNOSTIC_PLATFORMS: Final = ["sensor", "binary_sensor"]
 PLATFORMS: Final = sorted(set(SUPPORTED_DOMAINS + DIAGNOSTIC_PLATFORMS))
 
 EXCLUDED_DOMAINS: Final = [

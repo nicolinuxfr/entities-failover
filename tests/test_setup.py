@@ -248,13 +248,12 @@ async def test_setup_light_entity_without_available_source(hass) -> None:
     assert active_source is not None
     assert active_source.state == STATE_UNKNOWN
 
-    degraded = hass.states.get("binary_sensor.unavailable_light_degraded")
+    degraded = hass.states.get("binary_sensor.unavailable_light_fallback_active")
     assert degraded is not None
     assert degraded.state != STATE_UNAVAILABLE
 
-    clear_failures = hass.states.get("button.unavailable_light_clear_failures")
-    assert clear_failures is not None
-    assert clear_failures.state != STATE_UNAVAILABLE
+    assert hass.states.get("button.unavailable_light_retry_excluded_sources") is None
+    assert hass.services.has_service(DOMAIN, "clear_failures")
 
 
 @pytest.mark.asyncio

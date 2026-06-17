@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from homeassistant.components.binary_sensor import BinarySensorEntity
-from homeassistant.components.button import ButtonEntity
 from homeassistant.components.sensor import SensorEntity
 
 from ..const import ATTR_ACTIVE_SOURCE, ATTR_SOURCE_COUNT, ATTR_STATE_SOURCE
@@ -84,26 +83,3 @@ class FailoverDegradedBinarySensor(FailoverEntityMixin, BinarySensorEntity):
         """Return degradation detail."""
 
         return self.manager.state_attributes
-
-
-class FailoverClearFailuresButton(FailoverEntityMixin, ButtonEntity):
-    """Button that clears temporary source failures."""
-
-    _attr_icon = "mdi:refresh-alert"
-    _attr_translation_key = "clear_failures"
-
-    def __init__(self, manager: FailoverManager) -> None:
-        """Initialize the button."""
-
-        super().__init__(manager, suffix="clear_failures")
-
-    @property
-    def available(self) -> bool:
-        """Return entity availability."""
-
-        return True
-
-    async def async_press(self) -> None:
-        """Clear temporary source exclusions."""
-
-        await self.manager.async_clear_failures()
