@@ -67,6 +67,26 @@ async def test_validate_refuses_unsupported_domain(hass) -> None:
     )
 
 
+@pytest.mark.asyncio
+async def test_validate_allows_lights_with_different_color_modes(hass) -> None:
+    """Light sources may expose different color capabilities."""
+
+    hass.states.async_set(
+        "light.matter",
+        "on",
+        {"supported_color_modes": ["color_temp"]},
+    )
+    hass.states.async_set(
+        "light.cloud",
+        "off",
+        {"supported_color_modes": ["onoff"]},
+    )
+
+    assert (
+        _validate_sources(hass, "light", ["light.matter", "light.cloud"], None) is None
+    )
+
+
 def test_source_selectors_default_to_empty_lists() -> None:
     """Multiple entity selectors must never receive None as a default."""
 

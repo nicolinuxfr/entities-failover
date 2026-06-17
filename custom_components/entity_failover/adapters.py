@@ -384,7 +384,6 @@ ADAPTERS: dict[str, DomainAdapter] = {
             "async_turn_off": "turn_off",
             "async_toggle": "toggle",
         },
-        compatibility_attributes=("supported_color_modes",),
         passthrough_attributes=(
             "brightness",
             "color_mode",
