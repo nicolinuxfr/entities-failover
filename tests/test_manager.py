@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import logging
+from datetime import timedelta
+
 import pytest
+from homeassistant.util import dt as dt_util
+from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
 from custom_components.entity_failover.manager import FailoverManager
 from custom_components.entity_failover.model import (
@@ -87,6 +92,37 @@ async def test_command_retries_on_backup(hass) -> None:
 
 
 @pytest.mark.asyncio
+async def test_command_logs_routed_source(hass, caplog) -> None:
+    """Successful commands log the source that received the service call."""
+
+    caplog.set_level(
+        logging.DEBUG,
+        logger="custom_components.entity_failover.manager",
+    )
+
+    async def _turn_on(call):
+        hass.states.async_set(call.data["entity_id"], "on")
+
+    hass.services.async_register("switch", "turn_on", _turn_on)
+    hass.states.async_set("switch.primary", "off")
+    hass.states.async_set("switch.backup", "off")
+    manager = FailoverManager(hass, _config())
+    await manager.async_start()
+
+    await manager.async_call_service("turn_on")
+
+    assert (
+        "Entity Failover Kitchen Switch routing switch.turn_on "
+        "to switch.primary (attempt 1)"
+    ) in caplog.text
+    assert (
+        "Entity Failover Kitchen Switch completed switch.turn_on "
+        "on switch.primary (attempt 1)"
+    ) in caplog.text
+    await manager.async_unload()
+
+
+@pytest.mark.asyncio
 async def test_state_confirmation_success(hass) -> None:
     """State confirmation succeeds when the source publishes expected state."""
 
@@ -140,4 +176,28 @@ async def test_number_state_confirmation_uses_entity_state(hass) -> None:
     assert not manager.excluded_sources
     assert manager.last_command_result is not None
     assert manager.last_command_result.success
+    await manager.async_unload()
+
+
+@pytest.mark.asyncio
+async def test_recovery_returns_to_higher_priority_source_when_available(hass) -> None:
+    """Recovery returns to priority order when a source becomes operational."""
+
+    hass.states.async_set("switch.primary", "unavailable")
+    hass.states.async_set("switch.backup", "on")
+    manager = FailoverManager(
+        hass,
+        _config(
+            recovery_stability=30,
+        ),
+    )
+    await manager.async_start()
+    assert manager.active_source == "switch.backup"
+
+    hass.states.async_set("switch.primary", "off")
+    await hass.async_block_till_done()
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=31))
+    await hass.async_block_till_done()
+
+    assert manager.active_source == "switch.primary"
     await manager.async_unload()

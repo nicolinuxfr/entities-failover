@@ -384,6 +384,14 @@ class FailoverManager:
             tried.add(source)
             before = self.hass.states.get(source)
             try:
+                _LOGGER.debug(
+                    "Entity Failover %s routing %s.%s to %s (attempt %d)",
+                    self.config.name,
+                    self.config.domain,
+                    service,
+                    source,
+                    attempts,
+                )
                 await self._async_call_source(source, service, data, context)
                 if (
                     self.config.command_validation
@@ -399,6 +407,14 @@ class FailoverManager:
                     success=True,
                     attempts=attempts,
                     when=dt_util.utcnow(),
+                )
+                _LOGGER.debug(
+                    "Entity Failover %s completed %s.%s on %s (attempt %d)",
+                    self.config.name,
+                    self.config.domain,
+                    service,
+                    source,
+                    attempts,
                 )
                 self._notify()
                 return
