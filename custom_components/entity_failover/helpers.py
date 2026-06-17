@@ -67,7 +67,7 @@ def friendly_name(hass: HomeAssistant, entity_id: str | None) -> str | None:
     state = hass.states.get(entity_id)
     if state is None:
         return None
-    return state.attributes.get("friendly_name")
+    return state.name or entity_id
 
 
 def is_entity_failover_entity(hass: HomeAssistant, entity_id: str) -> bool:

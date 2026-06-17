@@ -30,13 +30,13 @@ from .adapters import (
 )
 from .const import (
     ATTR_ACTIVE_SOURCE,
+    ATTR_ALL_SOURCES_UNAVAILABLE,
     ATTR_AVAILABLE_SOURCES,
     ATTR_DEGRADED,
     ATTR_EXCLUDED_SOURCES,
     ATTR_PRIORITY_INDEX,
     ATTR_SOURCES_DESYNCHRONIZED,
     ATTR_STATE_SOURCE,
-    DEFAULT_REPAIRS_DELAY,
     DOMAIN,
     ISSUE_ALL_SOURCES_UNAVAILABLE,
 )
@@ -162,6 +162,7 @@ class FailoverManager:
             ATTR_SOURCES_DESYNCHRONIZED: self.sources_desynchronized,
             ATTR_PRIORITY_INDEX: self.active_priority_index,
             ATTR_DEGRADED: self.degraded,
+            ATTR_ALL_SOURCES_UNAVAILABLE: self.active_source is None,
             ATTR_AVAILABLE_SOURCES: self.available_sources,
             ATTR_EXCLUDED_SOURCES: self.excluded_sources,
         }
@@ -202,6 +203,9 @@ class FailoverManager:
         if self._cancel_repairs_timer is not None:
             self._cancel_repairs_timer()
             self._cancel_repairs_timer = None
+        if self._repairs_issue_active:
+            ir.async_delete_issue(self.hass, DOMAIN, self._repairs_issue_id)
+            self._repairs_issue_active = False
 
     def async_add_update_listener(self, callback_func: UpdateCallback) -> CALLBACK_TYPE:
         """Register an entity update callback."""
@@ -756,6 +760,11 @@ class FailoverManager:
         if self._repairs_issue_active or self._cancel_repairs_timer is not None:
             return
 
+        if self.config.repairs_delay <= 0:
+            ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+            self._repairs_issue_active = False
+            return
+
         @callback
         def _create_issue(_now: datetime) -> None:
             self._cancel_repairs_timer = None
@@ -782,7 +791,7 @@ class FailoverManager:
 
         self._cancel_repairs_timer = async_call_later(
             self.hass,
-            DEFAULT_REPAIRS_DELAY,
+            self.config.repairs_delay,
             _create_issue,
         )
 

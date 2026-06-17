@@ -17,12 +17,14 @@ from .const import (
     CONF_FAILURE_COOLDOWN,
     CONF_FEATURE_POLICY,
     CONF_RECOVERY_STABILITY,
+    CONF_REPAIRS_DELAY,
     CONF_SOURCES,
     DEFAULT_COMMAND_VALIDATION,
     DEFAULT_CONFIRMATION_TIMEOUT,
     DEFAULT_FAILURE_COOLDOWN,
     DEFAULT_FEATURE_POLICY,
     DEFAULT_RECOVERY_STABILITY,
+    DEFAULT_REPAIRS_DELAY,
 )
 
 
@@ -54,6 +56,7 @@ class FailoverConfig:
     failure_cooldown: float = DEFAULT_FAILURE_COOLDOWN
     recovery_stability: float = DEFAULT_RECOVERY_STABILITY
     feature_policy: FeaturePolicy = FeaturePolicy.INTERSECTION
+    repairs_delay: float = DEFAULT_REPAIRS_DELAY
     subentry_id: str | None = None
 
     @classmethod
@@ -88,6 +91,7 @@ class FailoverConfig:
             feature_policy=FeaturePolicy(
                 data.get(CONF_FEATURE_POLICY, DEFAULT_FEATURE_POLICY)
             ),
+            repairs_delay=float(data.get(CONF_REPAIRS_DELAY, DEFAULT_REPAIRS_DELAY)),
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -105,6 +109,7 @@ class FailoverConfig:
             "failure_cooldown": self.failure_cooldown,
             "recovery_stability": self.recovery_stability,
             "feature_policy": self.feature_policy.value,
+            "repairs_delay": self.repairs_delay,
         }
 
 

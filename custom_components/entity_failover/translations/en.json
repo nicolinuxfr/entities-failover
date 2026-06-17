@@ -15,7 +15,8 @@
           "feature_policy": "Features exposed by the entity",
           "advanced": "Advanced behavior",
           "command_validation": "Command verification",
-          "confirmation_timeout": "Maximum confirmation delay"
+          "confirmation_timeout": "Maximum confirmation delay",
+          "repairs_delay": "Delay before showing a Repairs alert"
         },
         "data_description": {
           "sources": "The first available source is used. If it fails, Entity Failover switches to the next one.",
@@ -23,7 +24,8 @@
           "failure_cooldown": "After a command error, the failed source is ignored for this long.",
           "feature_policy": "Choose whether the entity exposes only features shared by every source, or features from the active source.",
           "command_validation": "Determines when a command counts as successful and when another source should be tried.",
-          "confirmation_timeout": "Used only with state confirmation."
+          "confirmation_timeout": "Used only with state confirmation.",
+          "repairs_delay": "Set to 0 to keep the unavailable state only and never create a Repairs alert."
         }
       }
     },
@@ -58,7 +60,8 @@
             "feature_policy": "Features exposed by the entity",
             "advanced": "Advanced behavior",
             "command_validation": "Command verification",
-            "confirmation_timeout": "Maximum confirmation delay"
+            "confirmation_timeout": "Maximum confirmation delay",
+            "repairs_delay": "Delay before showing a Repairs alert"
           },
           "data_description": {
             "sources": "The first available source is used. If it fails, Entity Failover switches to the next one.",
@@ -66,7 +69,8 @@
             "failure_cooldown": "After a command error, the failed source is ignored for this long.",
             "feature_policy": "Choose whether the entity exposes only features shared by every source, or features from the active source.",
             "command_validation": "Determines when a command counts as successful and when another source should be tried.",
-            "confirmation_timeout": "Used only with state confirmation."
+            "confirmation_timeout": "Used only with state confirmation.",
+            "repairs_delay": "Set to 0 to keep the unavailable state only and never create a Repairs alert."
           }
         },
         "reconfigure": {
@@ -80,7 +84,8 @@
             "feature_policy": "Features exposed by the entity",
             "advanced": "Advanced behavior",
             "command_validation": "Command verification",
-            "confirmation_timeout": "Maximum confirmation delay"
+            "confirmation_timeout": "Maximum confirmation delay",
+            "repairs_delay": "Delay before showing a Repairs alert"
           },
           "data_description": {
             "sources": "The first available source is used. If it fails, Entity Failover switches to the next one.",
@@ -88,7 +93,8 @@
             "failure_cooldown": "After a command error, the failed source is ignored for this long.",
             "feature_policy": "Choose whether the entity exposes only features shared by every source, or features from the active source.",
             "command_validation": "Determines when a command counts as successful and when another source should be tried.",
-            "confirmation_timeout": "Used only with state confirmation."
+            "confirmation_timeout": "Used only with state confirmation.",
+            "repairs_delay": "Set to 0 to keep the unavailable state only and never create a Repairs alert."
           }
         }
       }
@@ -102,8 +108,11 @@
   },
   "entity": {
     "binary_sensor": {
-      "fallback_active": {
-        "name": "Fallback active"
+      "primary_source_inactive": {
+        "name": "Primary source inactive"
+      },
+      "all_sources_unavailable": {
+        "name": "All sources unavailable"
       }
     },
     "sensor": {

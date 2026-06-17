@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.fan import (
     ATTR_DIRECTION,
     ATTR_OSCILLATING,
@@ -21,6 +22,7 @@ from homeassistant.components.light import (
 from homeassistant.components.number import ATTR_MAX, ATTR_MIN, ATTR_MODE, ATTR_STEP
 from homeassistant.const import (
     ATTR_ENTITY_ID,
+    ATTR_FRIENDLY_NAME,
     ATTR_SUPPORTED_FEATURES,
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
@@ -93,6 +95,7 @@ async def test_setup_light_entity_exposes_light_state(hass) -> None:
         "light.one",
         "on",
         {
+            ATTR_FRIENDLY_NAME: "Main light relay",
             ATTR_BRIGHTNESS: 120,
             ATTR_COLOR_MODE: ColorMode.BRIGHTNESS,
             ATTR_SUPPORTED_COLOR_MODES: [ColorMode.BRIGHTNESS],
@@ -141,6 +144,21 @@ async def test_setup_light_entity_exposes_light_state(hass) -> None:
     assert state.attributes[ATTR_BRIGHTNESS] == 120
     assert state.attributes[ATTR_COLOR_MODE] == ColorMode.BRIGHTNESS
     assert state.attributes[ATTR_SUPPORTED_COLOR_MODES] == [ColorMode.BRIGHTNESS]
+
+    active_source = hass.states.get("sensor.living_room_light_active_source")
+    assert active_source is not None
+    assert active_source.state == "Main light relay"
+    assert active_source.attributes["active_source"] == "light.one"
+
+    primary_source_inactive = hass.states.get(
+        "binary_sensor.living_room_light_primary_source_inactive"
+    )
+    assert primary_source_inactive is not None
+    assert primary_source_inactive.state == "off"
+    assert (
+        primary_source_inactive.attributes["device_class"]
+        == BinarySensorDeviceClass.PROBLEM
+    )
 
     await hass.services.async_call(
         "light",
@@ -248,9 +266,21 @@ async def test_setup_light_entity_without_available_source(hass) -> None:
     assert active_source is not None
     assert active_source.state == STATE_UNKNOWN
 
-    degraded = hass.states.get("binary_sensor.unavailable_light_fallback_active")
-    assert degraded is not None
-    assert degraded.state != STATE_UNAVAILABLE
+    primary_source_inactive = hass.states.get(
+        "binary_sensor.unavailable_light_primary_source_inactive"
+    )
+    assert primary_source_inactive is not None
+    assert primary_source_inactive.state == "on"
+    assert (
+        primary_source_inactive.attributes["device_class"]
+        == BinarySensorDeviceClass.PROBLEM
+    )
+
+    all_sources_unavailable = hass.states.get(
+        "binary_sensor.unavailable_light_all_sources_unavailable"
+    )
+    assert all_sources_unavailable is not None
+    assert all_sources_unavailable.state == "on"
 
     assert hass.states.get("button.unavailable_light_retry_excluded_sources") is None
     assert hass.services.has_service(DOMAIN, "clear_failures")

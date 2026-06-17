@@ -15,13 +15,14 @@ CONF_CONFIRMATION_TIMEOUT: Final = "confirmation_timeout"
 CONF_FAILURE_COOLDOWN: Final = "failure_cooldown"
 CONF_RECOVERY_STABILITY: Final = "recovery_stability"
 CONF_FEATURE_POLICY: Final = "feature_policy"
+CONF_REPAIRS_DELAY: Final = "repairs_delay"
 
 DEFAULT_COMMAND_VALIDATION: Final = "service_call"
 DEFAULT_CONFIRMATION_TIMEOUT: Final = 10.0
 DEFAULT_FAILURE_COOLDOWN: Final = 60.0
 DEFAULT_RECOVERY_STABILITY: Final = 30.0
 DEFAULT_FEATURE_POLICY: Final = "intersection"
-DEFAULT_REPAIRS_DELAY: Final = 300.0
+DEFAULT_REPAIRS_DELAY: Final = 0.0
 
 ATTR_ACTIVE_SOURCE: Final = "active_source"
 ATTR_STATE_SOURCE: Final = "state_source"
@@ -32,6 +33,7 @@ ATTR_AVAILABLE_SOURCES: Final = "available_sources"
 ATTR_EXCLUDED_SOURCES: Final = "excluded_sources"
 ATTR_FORWARDED_ENTITY_ID: Final = "forwarded_entity_id"
 ATTR_SOURCE_COUNT: Final = "source_count"
+ATTR_ALL_SOURCES_UNAVAILABLE: Final = "all_sources_unavailable"
 
 SERVICE_CLEAR_FAILURES: Final = "clear_failures"
 

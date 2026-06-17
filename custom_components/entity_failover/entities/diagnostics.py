@@ -4,17 +4,25 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.binary_sensor import BinarySensorEntity
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntity,
+)
 from homeassistant.components.sensor import SensorEntity
 
-from ..const import ATTR_ACTIVE_SOURCE, ATTR_SOURCE_COUNT, ATTR_STATE_SOURCE
+from ..const import (
+    ATTR_ACTIVE_SOURCE,
+    ATTR_ALL_SOURCES_UNAVAILABLE,
+    ATTR_SOURCE_COUNT,
+    ATTR_STATE_SOURCE,
+)
 from ..helpers import friendly_name
 from ..manager import FailoverManager
 from .base import FailoverEntityMixin
 
 
 class FailoverActiveSourceSensor(FailoverEntityMixin, SensorEntity):
-    """Diagnostic sensor exposing the active source entity id."""
+    """Diagnostic sensor exposing the active source name."""
 
     _attr_icon = "mdi:source-branch"
     _attr_translation_key = "active_source"
@@ -32,9 +40,9 @@ class FailoverActiveSourceSensor(FailoverEntityMixin, SensorEntity):
 
     @property
     def native_value(self) -> str | None:
-        """Return active source id."""
+        """Return active source name."""
 
-        return self.manager.active_source
+        return friendly_name(self.manager.hass, self.manager.active_source)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -55,16 +63,18 @@ class FailoverActiveSourceSensor(FailoverEntityMixin, SensorEntity):
         }
 
 
-class FailoverDegradedBinarySensor(FailoverEntityMixin, BinarySensorEntity):
-    """Diagnostic binary sensor exposing degraded status."""
+class FailoverPrimarySourceInactiveBinarySensor(
+    FailoverEntityMixin, BinarySensorEntity
+):
+    """Diagnostic binary sensor exposing primary source problems."""
 
-    _attr_icon = "mdi:alert-circle-outline"
-    _attr_translation_key = "fallback_active"
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_translation_key = "primary_source_inactive"
 
     def __init__(self, manager: FailoverManager) -> None:
         """Initialize the binary sensor."""
 
-        super().__init__(manager, suffix="degraded")
+        super().__init__(manager, suffix="primary_source_inactive")
 
     @property
     def available(self) -> bool:
@@ -74,12 +84,49 @@ class FailoverDegradedBinarySensor(FailoverEntityMixin, BinarySensorEntity):
 
     @property
     def is_on(self) -> bool:
-        """Return whether the entity is degraded."""
+        """Return whether the primary source is not cleanly active."""
 
-        return self.manager.degraded
+        return self.manager.active_priority_index != 0 or bool(
+            self.manager.excluded_sources
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return degradation detail."""
+        """Return source health detail."""
 
         return self.manager.state_attributes
+
+
+class FailoverAllSourcesUnavailableBinarySensor(
+    FailoverEntityMixin, BinarySensorEntity
+):
+    """Diagnostic binary sensor exposing total source unavailability."""
+
+    _attr_icon = "mdi:alert-outline"
+    _attr_translation_key = "all_sources_unavailable"
+
+    def __init__(self, manager: FailoverManager) -> None:
+        """Initialize the binary sensor."""
+
+        super().__init__(manager, suffix="all_sources_unavailable")
+
+    @property
+    def available(self) -> bool:
+        """Return entity availability."""
+
+        return True
+
+    @property
+    def is_on(self) -> bool:
+        """Return whether every source is unavailable or excluded."""
+
+        return self.manager.active_source is None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return source availability detail."""
+
+        return {
+            **self.manager.state_attributes,
+            ATTR_ALL_SOURCES_UNAVAILABLE: self.is_on,
+        }

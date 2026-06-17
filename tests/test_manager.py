@@ -306,3 +306,34 @@ async def test_recovery_returns_to_higher_priority_source_when_available(hass) -
 
     assert manager.active_source == "switch.primary"
     await manager.async_unload()
+
+
+@pytest.mark.asyncio
+async def test_repairs_alert_is_disabled_by_default(hass) -> None:
+    """No Repairs issue is created when all sources are unavailable by default."""
+
+    manager = FailoverManager(hass, _config())
+    await manager.async_start()
+
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(hours=1))
+    await hass.async_block_till_done()
+
+    assert manager.active_source is None
+    assert manager.state_attributes["all_sources_unavailable"] is True
+    assert manager.diagnostics().repairs_issue_active is False
+    await manager.async_unload()
+
+
+@pytest.mark.asyncio
+async def test_repairs_alert_can_be_enabled_with_delay(hass) -> None:
+    """A positive Repairs delay creates the all-sources-unavailable issue."""
+
+    manager = FailoverManager(hass, _config(repairs_delay=1))
+    await manager.async_start()
+
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=2))
+    await hass.async_block_till_done()
+
+    assert manager.active_source is None
+    assert manager.diagnostics().repairs_issue_active is True
+    await manager.async_unload()
