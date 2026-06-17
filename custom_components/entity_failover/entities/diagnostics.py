@@ -8,7 +8,7 @@ from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.components.button import ButtonEntity
 from homeassistant.components.sensor import SensorEntity
 
-from ..const import ATTR_ACTIVE_SOURCE, ATTR_SOURCE_COUNT
+from ..const import ATTR_ACTIVE_SOURCE, ATTR_SOURCE_COUNT, ATTR_STATE_SOURCE
 from ..helpers import friendly_name
 from ..manager import FailoverManager
 from .base import FailoverEntityMixin
@@ -42,9 +42,14 @@ class FailoverActiveSourceSensor(FailoverEntityMixin, SensorEntity):
 
         return {
             ATTR_ACTIVE_SOURCE: self.manager.active_source,
+            ATTR_STATE_SOURCE: self.manager.effective_state_source,
             "active_source_name": friendly_name(
                 self.manager.hass,
                 self.manager.active_source,
+            ),
+            "state_source_name": friendly_name(
+                self.manager.hass,
+                self.manager.effective_state_source,
             ),
             ATTR_SOURCE_COUNT: len(self.manager.config.sources),
         }

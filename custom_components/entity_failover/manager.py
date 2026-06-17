@@ -34,6 +34,8 @@ from .const import (
     ATTR_DEGRADED,
     ATTR_EXCLUDED_SOURCES,
     ATTR_PRIORITY_INDEX,
+    ATTR_SOURCES_DESYNCHRONIZED,
+    ATTR_STATE_SOURCE,
     DEFAULT_REPAIRS_DELAY,
     DOMAIN,
     ISSUE_ALL_SOURCES_UNAVAILABLE,
@@ -61,6 +63,7 @@ class FailoverManager:
         self.config = config
         self.adapter: DomainAdapter = adapter_for_domain(config.domain)
         self.active_source: str | None = None
+        self.state_source: str | None = None
         self.main_entity_id: str | None = None
         self.last_failover: datetime | None = None
         self.last_command_result: CommandResult | None = None
@@ -79,11 +82,28 @@ class FailoverManager:
 
     @property
     def active_state(self) -> State | None:
-        """Return the active source state."""
+        """Return the state source state."""
 
-        if self.active_source is None:
+        source = self.effective_state_source
+        if source is None:
             return None
-        return self.hass.states.get(self.active_source)
+        return self.hass.states.get(source)
+
+    @property
+    def effective_state_source(self) -> str | None:
+        """Return the source currently used to mirror state."""
+
+        return self.state_source or self.active_source
+
+    @property
+    def sources_desynchronized(self) -> bool:
+        """Return whether command and state sources currently differ."""
+
+        return (
+            self.active_source is not None
+            and self.state_source is not None
+            and self.state_source != self.active_source
+        )
 
     @property
     def available(self) -> bool:
@@ -135,6 +155,8 @@ class FailoverManager:
 
         return {
             ATTR_ACTIVE_SOURCE: self.active_source,
+            ATTR_STATE_SOURCE: self.effective_state_source,
+            ATTR_SOURCES_DESYNCHRONIZED: self.sources_desynchronized,
             ATTR_PRIORITY_INDEX: self.active_priority_index,
             ATTR_DEGRADED: self.degraded,
             ATTR_AVAILABLE_SOURCES: self.available_sources,
@@ -146,6 +168,7 @@ class FailoverManager:
 
         self._refresh_health()
         self.active_source = self._best_operational_source()
+        self.state_source = None
         self._unsub.append(
             async_track_state_change_event(
                 self.hass,
@@ -208,6 +231,7 @@ class FailoverManager:
         old_active = self.active_source
         self._refresh_health()
         self._select_after_state_change(old_active)
+        self._select_state_source_after_state_change(entity_id)
         self._handle_repairs_state()
         if self.active_source != old_active:
             self._record_failover(old_active, self.active_source)
@@ -231,16 +255,19 @@ class FailoverManager:
         if old_active is not None and not self._is_source_operational(old_active):
             self._cancel_recovery_timer()
             self.active_source = self._best_operational_source()
+            self.state_source = None
             return
 
         best = self._best_operational_source()
         if best is None:
             self._cancel_recovery_timer()
             self.active_source = None
+            self.state_source = None
             return
 
         if self.active_source is None:
             self.active_source = best
+            self.state_source = None
             return
 
         best_index = self.config.sources.index(best)
@@ -289,6 +316,7 @@ class FailoverManager:
                 return
             old_active = self.active_source
             self.active_source = source
+            self.state_source = None
             self._record_failover(old_active, source)
             self._handle_repairs_state()
             self._notify()
@@ -338,6 +366,7 @@ class FailoverManager:
         old_active = self.active_source
         self._refresh_health()
         self.active_source = self._best_operational_source()
+        self.state_source = None
         if self.active_source != old_active:
             self._record_failover(old_active, self.active_source)
         self._handle_repairs_state()
@@ -408,6 +437,12 @@ class FailoverManager:
                     attempts=attempts,
                     when=dt_util.utcnow(),
                 )
+                self._select_state_source_after_successful_command(
+                    source,
+                    service,
+                    before,
+                    data,
+                )
                 _LOGGER.debug(
                     "Entity Failover %s completed %s.%s on %s (attempt %d)",
                     self.config.name,
@@ -423,6 +458,7 @@ class FailoverManager:
                 self._exclude_source(source, err)
                 old_active = self.active_source
                 self.active_source = self._best_operational_source()
+                self.state_source = None
                 if self.active_source != old_active:
                     self._record_failover(old_active, self.active_source)
                 _LOGGER.warning(
@@ -503,21 +539,25 @@ class FailoverManager:
             return True
         if not isinstance(expected, ConfirmationRule):
             return True
-        state = self.hass.states.get(source)
-        if self.adapter.confirmation_matches(expected, state, data):
+        matched_source = self._source_matching_confirmation(expected, data)
+        if matched_source is not None:
+            self._set_state_source_from_confirmation(source, matched_source)
             return True
 
         future: asyncio.Future[bool] = self.hass.loop.create_future()
 
         @callback
         def _state_changed(event: Event[Any]) -> None:
+            changed_source = event.data.get("entity_id")
             new_state = event.data.get("new_state")
             if self.adapter.confirmation_matches(expected, new_state, data):
+                if isinstance(changed_source, str):
+                    self._set_state_source_from_confirmation(source, changed_source)
                 if not future.done():
                     future.set_result(True)
 
         unsub_state = async_track_state_change_event(
-            self.hass, [source], _state_changed
+            self.hass, list(self.config.sources), _state_changed
         )
 
         @callback
@@ -535,6 +575,80 @@ class FailoverManager:
         finally:
             unsub_state()
             unsub_timeout()
+
+    def _select_state_source_after_successful_command(
+        self,
+        command_source: str,
+        service: str,
+        before: State | None,
+        data: Mapping[str, Any],
+    ) -> None:
+        """Select a mirrored state source after a successful service call."""
+
+        expected = self.adapter.expected_result(service, before, data)
+        if not isinstance(expected, ConfirmationRule):
+            return
+        matched_source = self._source_matching_confirmation(expected, data)
+        if matched_source is None:
+            return
+        self._set_state_source_from_confirmation(command_source, matched_source)
+
+    def _source_matching_confirmation(
+        self,
+        expected: ConfirmationRule,
+        data: Mapping[str, Any],
+    ) -> str | None:
+        """Return the first operational source matching an expected state."""
+
+        for source in self.config.sources:
+            if not self._is_source_operational(source):
+                continue
+            state = self.hass.states.get(source)
+            if self.adapter.confirmation_matches(expected, state, data):
+                return source
+        return None
+
+    def _set_state_source_from_confirmation(
+        self,
+        command_source: str,
+        matched_source: str,
+    ) -> None:
+        """Mirror state from a confirming source while commands keep priority."""
+
+        old_state_source = self.state_source
+        self.state_source = None if matched_source == command_source else matched_source
+        if self.state_source != old_state_source:
+            _LOGGER.debug(
+                "Entity Failover %s using %s as state source while command "
+                "source is %s",
+                self.config.name,
+                self.effective_state_source,
+                command_source,
+            )
+
+    def _select_state_source_after_state_change(self, changed_source: str) -> None:
+        """Return state mirroring to the command source when it catches up."""
+
+        if self.state_source is None:
+            return
+        if not self._is_source_operational(self.state_source):
+            self.state_source = None
+            return
+        if changed_source != self.active_source:
+            return
+        active_state = self.hass.states.get(self.active_source)
+        state_source_state = self.hass.states.get(self.state_source)
+        if (
+            active_state is not None
+            and state_source_state is not None
+            and active_state.state == state_source_state.state
+        ):
+            _LOGGER.debug(
+                "Entity Failover %s returned state source to command source %s",
+                self.config.name,
+                self.active_source,
+            )
+            self.state_source = None
 
     def _exclude_source(self, source: str, err: Exception) -> None:
         """Temporarily exclude a failed source."""
@@ -555,6 +669,7 @@ class FailoverManager:
             self._refresh_health()
             old_active = self.active_source
             self._select_after_state_change(old_active)
+            self._select_state_source_after_state_change(source)
             if self.active_source != old_active:
                 self._record_failover(old_active, self.active_source)
             self._handle_repairs_state()
@@ -626,6 +741,8 @@ class FailoverManager:
         return ManagerDiagnostics(
             entry=self.config.as_dict(),
             active_source=self.active_source,
+            state_source=self.effective_state_source,
+            sources_desynchronized=self.sources_desynchronized,
             source_health={
                 source: health.as_dict() for source, health in self._health.items()
             },
@@ -644,5 +761,9 @@ class FailoverManager:
             repairs_issue_active=self._repairs_issue_active,
             extra={
                 "active_source_name": friendly_name(self.hass, self.active_source),
+                "state_source_name": friendly_name(
+                    self.hass,
+                    self.effective_state_source,
+                ),
             },
         )

@@ -168,6 +168,8 @@ class ManagerDiagnostics:
 
     entry: dict[str, Any]
     active_source: str | None
+    state_source: str | None
+    sources_desynchronized: bool
     source_health: dict[str, dict[str, Any]]
     temporary_exclusions: dict[str, str]
     pending_recovery: str | None
@@ -182,6 +184,8 @@ class ManagerDiagnostics:
         return {
             "entry": self.entry,
             "active_source": self.active_source,
+            "state_source": self.state_source,
+            "sources_desynchronized": self.sources_desynchronized,
             "source_health": self.source_health,
             "temporary_exclusions": self.temporary_exclusions,
             "pending_recovery": self.pending_recovery,

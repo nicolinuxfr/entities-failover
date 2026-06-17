@@ -24,6 +24,8 @@ DEFAULT_FEATURE_POLICY: Final = "intersection"
 DEFAULT_REPAIRS_DELAY: Final = 300.0
 
 ATTR_ACTIVE_SOURCE: Final = "active_source"
+ATTR_STATE_SOURCE: Final = "state_source"
+ATTR_SOURCES_DESYNCHRONIZED: Final = "sources_desynchronized"
 ATTR_PRIORITY_INDEX: Final = "priority_index"
 ATTR_DEGRADED: Final = "degraded"
 ATTR_AVAILABLE_SOURCES: Final = "available_sources"
