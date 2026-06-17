@@ -429,7 +429,16 @@ class FailoverManager:
                     source,
                     attempts,
                 )
-                await self._async_call_source(source, service, data, context)
+                await self._async_call_source(
+                    source,
+                    service,
+                    data,
+                    context,
+                    blocking=(
+                        self.config.command_validation
+                        == CommandValidation.STATE_CONFIRMATION
+                    ),
+                )
                 expected = self.adapter.expected_result(service, before, data)
                 if (
                     self.config.command_validation
@@ -522,6 +531,8 @@ class FailoverManager:
         service: str,
         data: Mapping[str, Any],
         context: Context | None,
+        *,
+        blocking: bool,
     ) -> None:
         """Call a service on a source entity."""
 
@@ -531,7 +542,7 @@ class FailoverManager:
             self.config.domain,
             service,
             call_data,
-            blocking=True,
+            blocking=blocking,
             context=context,
         )
 

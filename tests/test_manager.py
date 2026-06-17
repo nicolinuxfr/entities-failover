@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import timedelta
 
@@ -76,14 +77,19 @@ async def test_command_retries_on_backup(hass) -> None:
         calls.append(entity_id)
         if entity_id == "switch.primary":
             raise RuntimeError("boom")
+        hass.states.async_set(entity_id, "on")
 
     hass.services.async_register("switch", "turn_on", _turn_on)
     hass.states.async_set("switch.primary", "off")
     hass.states.async_set("switch.backup", "off")
-    manager = FailoverManager(hass, _config())
+    manager = FailoverManager(
+        hass,
+        _config(command_validation=CommandValidation.STATE_CONFIRMATION),
+    )
     await manager.async_start()
 
     await manager.async_call_service("turn_on")
+    await hass.async_block_till_done()
 
     assert calls == ["switch.primary", "switch.backup"]
     assert manager.active_source == "switch.backup"
@@ -110,6 +116,7 @@ async def test_command_logs_routed_source(hass, caplog) -> None:
     await manager.async_start()
 
     await manager.async_call_service("turn_on")
+    await hass.async_block_till_done()
 
     assert (
         "Entity Failover Kitchen Switch routing switch.turn_on "
@@ -139,6 +146,7 @@ async def test_successful_command_can_mirror_confirming_state_source(hass) -> No
     await manager.async_start()
 
     await manager.async_call_service("turn_on")
+    await hass.async_block_till_done()
 
     assert calls == ["switch.primary"]
     assert manager.active_source == "switch.primary"
@@ -175,6 +183,7 @@ async def test_successful_service_call_can_mirror_delayed_peer_state(hass) -> No
     await manager.async_start()
 
     await manager.async_call_service("turn_on")
+    await hass.async_block_till_done()
 
     assert calls == ["switch.primary"]
     assert manager.active_source == "switch.primary"
@@ -195,6 +204,34 @@ async def test_successful_service_call_can_mirror_delayed_peer_state(hass) -> No
     assert manager.state_source is None
     assert not manager.sources_desynchronized
     assert manager.active_state == hass.states.get("switch.primary")
+    await manager.async_unload()
+
+
+@pytest.mark.asyncio
+async def test_service_call_validation_does_not_block_on_slow_source(hass) -> None:
+    """Service-call mode returns once Home Assistant accepts the service."""
+
+    call_started = asyncio.Event()
+    allow_finish = asyncio.Event()
+
+    async def _turn_on(call):
+        call_started.set()
+        await allow_finish.wait()
+        hass.states.async_set(call.data["entity_id"], "on")
+
+    hass.services.async_register("switch", "turn_on", _turn_on)
+    hass.states.async_set("switch.primary", "off")
+    manager = FailoverManager(hass, _config())
+    await manager.async_start()
+
+    await asyncio.wait_for(manager.async_call_service("turn_on"), timeout=0.1)
+
+    await asyncio.wait_for(call_started.wait(), timeout=0.1)
+    assert manager.last_command_result is not None
+    assert manager.last_command_result.success
+
+    allow_finish.set()
+    await hass.async_block_till_done()
     await manager.async_unload()
 
 
