@@ -102,7 +102,7 @@ class FailoverAllSourcesUnavailableBinarySensor(
 ):
     """Diagnostic binary sensor exposing total source unavailability."""
 
-    _attr_icon = "mdi:alert-outline"
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
     _attr_translation_key = "all_sources_unavailable"
 
     def __init__(self, manager: FailoverManager) -> None:

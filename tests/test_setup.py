@@ -160,6 +160,16 @@ async def test_setup_light_entity_exposes_light_state(hass) -> None:
         == BinarySensorDeviceClass.PROBLEM
     )
 
+    all_sources_unavailable = hass.states.get(
+        "binary_sensor.living_room_light_all_sources_unavailable"
+    )
+    assert all_sources_unavailable is not None
+    assert all_sources_unavailable.state == "off"
+    assert (
+        all_sources_unavailable.attributes["device_class"]
+        == BinarySensorDeviceClass.PROBLEM
+    )
+
     await hass.services.async_call(
         "light",
         "turn_on",
@@ -281,6 +291,10 @@ async def test_setup_light_entity_without_available_source(hass) -> None:
     )
     assert all_sources_unavailable is not None
     assert all_sources_unavailable.state == "on"
+    assert (
+        all_sources_unavailable.attributes["device_class"]
+        == BinarySensorDeviceClass.PROBLEM
+    )
 
     assert hass.states.get("button.unavailable_light_retry_excluded_sources") is None
     assert hass.services.has_service(DOMAIN, "clear_failures")
