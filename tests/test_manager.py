@@ -160,6 +160,45 @@ async def test_successful_command_can_mirror_confirming_state_source(hass) -> No
 
 
 @pytest.mark.asyncio
+async def test_successful_service_call_can_mirror_delayed_peer_state(hass) -> None:
+    """A delayed peer update can mirror command result in service-call mode."""
+
+    calls: list[str] = []
+
+    async def _turn_on(call):
+        calls.append(call.data["entity_id"])
+
+    hass.services.async_register("switch", "turn_on", _turn_on)
+    hass.states.async_set("switch.primary", "off")
+    hass.states.async_set("switch.backup", "off")
+    manager = FailoverManager(hass, _config())
+    await manager.async_start()
+
+    await manager.async_call_service("turn_on")
+
+    assert calls == ["switch.primary"]
+    assert manager.active_source == "switch.primary"
+    assert manager.state_source is None
+    assert manager.active_state == hass.states.get("switch.primary")
+
+    hass.states.async_set("switch.backup", "on")
+    await hass.async_block_till_done()
+
+    assert manager.active_source == "switch.primary"
+    assert manager.state_source == "switch.backup"
+    assert manager.sources_desynchronized
+    assert manager.active_state == hass.states.get("switch.backup")
+
+    hass.states.async_set("switch.primary", "on")
+    await hass.async_block_till_done()
+
+    assert manager.state_source is None
+    assert not manager.sources_desynchronized
+    assert manager.active_state == hass.states.get("switch.primary")
+    await manager.async_unload()
+
+
+@pytest.mark.asyncio
 async def test_state_confirmation_accepts_any_configured_source(hass) -> None:
     """State confirmation succeeds when a peer source publishes the result."""
 
