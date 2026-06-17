@@ -21,6 +21,8 @@ class ConfirmationRule:
 
     states: tuple[str, ...] = ()
     attribute: str | None = None
+    data_key: str | None = None
+    state_value: bool = False
     tolerance: float = 0.0
     opposite: bool = False
     unsupported: bool = False
@@ -107,6 +109,12 @@ class DomainAdapter:
         if service == "set_preset_mode" and "preset_mode" in data:
             return ConfirmationRule(attribute="preset_mode")
         if service == "set_value" and "value" in data:
+            if self.domain == "number":
+                return ConfirmationRule(
+                    data_key="value",
+                    state_value=True,
+                    tolerance=0.001,
+                )
             return ConfirmationRule(attribute="value", tolerance=0.001)
         if service in {"select_option", "set_preset_mode"}:
             return ConfirmationRule(attribute="current_option")
@@ -124,16 +132,27 @@ class DomainAdapter:
             return False
         if rule.states and state.state in rule.states:
             return True
-        if rule.attribute is None:
+        if rule.state_value:
+            actual = state.state
+        elif rule.attribute is not None:
+            actual = state.attributes.get(rule.attribute)
+        else:
             return False
-        actual = state.attributes.get(rule.attribute)
-        expected = data.get(_expected_data_key(rule.attribute))
-        if expected is None:
+
+        expected = data.get(rule.data_key) if rule.data_key is not None else None
+        if expected is None and rule.attribute is not None:
+            expected = data.get(_expected_data_key(rule.attribute))
+        if expected is None and rule.attribute is not None:
             expected = data.get(rule.attribute)
         if expected is None:
             return actual is not None
         if actual is None:
             return False
+        if rule.tolerance:
+            try:
+                return abs(float(actual) - float(expected)) <= rule.tolerance
+            except (TypeError, ValueError):
+                pass
         if isinstance(actual, (int, float)) and isinstance(expected, (int, float)):
             return abs(float(actual) - float(expected)) <= rule.tolerance
         return actual == expected
@@ -399,7 +418,11 @@ ADAPTERS: dict[str, DomainAdapter] = {
         {"async_set_native_value": "set_value"},
         passthrough_attributes=("min", "max", "step", "mode", "unit_of_measurement"),
         confirmation={
-            "set_value": ConfirmationRule(attribute="value", tolerance=0.001)
+            "set_value": ConfirmationRule(
+                data_key="value",
+                state_value=True,
+                tolerance=0.001,
+            )
         },
     ),
     "remote": _adapter(

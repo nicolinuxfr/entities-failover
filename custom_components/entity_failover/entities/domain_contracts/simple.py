@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from homeassistant.components.button import ButtonEntity
-from homeassistant.components.fan import FanEntity, FanEntityFeature
+from homeassistant.components.fan import (
+    ATTR_DIRECTION,
+    ATTR_OSCILLATING,
+    FanEntity,
+    FanEntityFeature,
+)
 from homeassistant.components.remote import RemoteEntity
 from homeassistant.components.siren import SirenEntity, SirenEntityFeature
 from homeassistant.components.switch import SwitchEntity
@@ -32,6 +37,18 @@ class FailoverFanEntity(FanRouteMixin, ToggleFailoverEntity, FanEntity):
         """Return active source fan percentage step."""
 
         return self._float_attribute("percentage_step")
+
+    @property
+    def current_direction(self) -> str | None:
+        """Return active source fan direction."""
+
+        return self._active_attribute(ATTR_DIRECTION)
+
+    @property
+    def oscillating(self) -> bool | None:
+        """Return whether active source is oscillating."""
+
+        return self._active_attribute(ATTR_OSCILLATING)
 
     @property
     def preset_mode(self) -> str | None:

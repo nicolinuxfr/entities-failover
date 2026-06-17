@@ -107,3 +107,37 @@ async def test_state_confirmation_success(hass) -> None:
     assert manager.last_command_result is not None
     assert manager.last_command_result.success
     await manager.async_unload()
+
+
+@pytest.mark.asyncio
+async def test_number_state_confirmation_uses_entity_state(hass) -> None:
+    """Number set_value confirmation compares against the source state."""
+
+    calls: list[str] = []
+
+    async def _set_value(call):
+        entity_id = call.data["entity_id"]
+        calls.append(entity_id)
+        hass.states.async_set(entity_id, str(float(call.data["value"])))
+
+    hass.services.async_register("number", "set_value", _set_value)
+    hass.states.async_set("number.primary", "16")
+    hass.states.async_set("number.backup", "8")
+    manager = FailoverManager(
+        hass,
+        _config(
+            domain="number",
+            sources=("number.primary", "number.backup"),
+            command_validation=CommandValidation.STATE_CONFIRMATION,
+        ),
+    )
+    await manager.async_start()
+
+    await manager.async_call_service("set_value", {"value": 20})
+
+    assert calls == ["number.primary"]
+    assert manager.active_source == "number.primary"
+    assert not manager.excluded_sources
+    assert manager.last_command_result is not None
+    assert manager.last_command_result.success
+    await manager.async_unload()

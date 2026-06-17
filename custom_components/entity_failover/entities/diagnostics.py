@@ -25,6 +25,12 @@ class FailoverActiveSourceSensor(FailoverEntityMixin, SensorEntity):
         super().__init__(manager, suffix="active_source")
 
     @property
+    def available(self) -> bool:
+        """Return entity availability."""
+
+        return True
+
+    @property
     def native_value(self) -> str | None:
         """Return active source id."""
 
@@ -55,6 +61,12 @@ class FailoverDegradedBinarySensor(FailoverEntityMixin, BinarySensorEntity):
         super().__init__(manager, suffix="degraded")
 
     @property
+    def available(self) -> bool:
+        """Return entity availability."""
+
+        return True
+
+    @property
     def is_on(self) -> bool:
         """Return whether the entity is degraded."""
 
@@ -76,6 +88,12 @@ class FailoverClearFailuresButton(FailoverEntityMixin, ButtonEntity):
         """Initialize the button."""
 
         super().__init__(manager, suffix="clear_failures")
+
+    @property
+    def available(self) -> bool:
+        """Return entity availability."""
+
+        return True
 
     async def async_press(self) -> None:
         """Clear temporary source exclusions."""

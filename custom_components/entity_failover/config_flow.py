@@ -37,6 +37,8 @@ from .const import (
 from .helpers import entity_domain, normalize_sources
 
 ADVANCED_SECTION = "advanced"
+
+
 class EntityFailoverConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle an Entity Failover config flow."""
 

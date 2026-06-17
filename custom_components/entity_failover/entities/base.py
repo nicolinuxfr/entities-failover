@@ -69,10 +69,23 @@ class FailoverEntityMixin:
         if active_state is None:
             return attrs
         attrs[ATTR_FORWARDED_ENTITY_ID] = active_state.entity_id
+        native_attrs = self._native_platform_attribute_keys()
         for key in self.manager.adapter.passthrough_attributes:
-            if key in active_state.attributes:
+            if key not in native_attrs and key in active_state.attributes:
                 attrs[key] = active_state.attributes[key]
         return attrs
+
+    def _native_platform_attribute_keys(self) -> set[str]:
+        """Return attributes already managed by the Home Assistant entity class."""
+
+        keys: set[str] = set()
+        capability_attributes = self.capability_attributes
+        if capability_attributes:
+            keys.update(capability_attributes)
+        state_attributes = self.state_attributes
+        if state_attributes:
+            keys.update(state_attributes)
+        return keys
 
     @property
     def supported_features(self) -> int:
