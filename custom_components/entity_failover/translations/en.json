@@ -11,6 +11,7 @@
         "data": {
           "name": "Failover entity name",
           "sources": "Sources, in priority order",
+          "selection_policy": "Selection policy",
           "recovery_stability": "Stability delay before returning to a higher-priority source",
           "failure_cooldown": "Temporary exclusion duration after a failure",
           "feature_policy": "Features exposed by the entity",
@@ -21,6 +22,7 @@
         },
         "data_description": {
           "sources": "The first available source is used. If it fails, Entity Failover switches to the next one.",
+          "selection_policy": "Choose whether to route commands to sources based on static priority or based on the lowest measured latency.",
           "recovery_stability": "A higher-priority source must stay available for this long before becoming active again.",
           "failure_cooldown": "After a command error, the failed source is ignored for this long.",
           "feature_policy": "Choose whether the entity exposes only features shared by every source, or features from the active source.",
@@ -70,6 +72,7 @@
           "data": {
             "name": "Failover entity name",
             "sources": "Sources, in priority order",
+            "selection_policy": "Selection policy",
             "recovery_stability": "Stability delay before returning to a higher-priority source",
             "failure_cooldown": "Temporary exclusion duration after a failure",
             "feature_policy": "Features exposed by the entity",
@@ -80,6 +83,7 @@
           },
           "data_description": {
             "sources": "The first available source is used. If it fails, Entity Failover switches to the next one.",
+            "selection_policy": "Choose whether to route commands to sources based on static priority or based on the lowest measured latency.",
             "recovery_stability": "A higher-priority source must stay available for this long before becoming active again.",
             "failure_cooldown": "After a command error, the failed source is ignored for this long.",
             "feature_policy": "Choose whether the entity exposes only features shared by every source, or features from the active source.",
@@ -94,6 +98,7 @@
           "data": {
             "name": "Failover entity name",
             "sources": "Sources, in priority order",
+            "selection_policy": "Selection policy",
             "recovery_stability": "Stability delay before returning to a higher-priority source",
             "failure_cooldown": "Temporary exclusion duration after a failure",
             "feature_policy": "Features exposed by the entity",
@@ -104,6 +109,7 @@
           },
           "data_description": {
             "sources": "The first available source is used. If it fails, Entity Failover switches to the next one.",
+            "selection_policy": "Choose whether to route commands to sources based on static priority or based on the lowest measured latency.",
             "recovery_stability": "A higher-priority source must stay available for this long before becoming active again.",
             "failure_cooldown": "After a command error, the failed source is ignored for this long.",
             "feature_policy": "Choose whether the entity exposes only features shared by every source, or features from the active source.",
@@ -151,6 +157,12 @@
     }
   },
   "selector": {
+    "selection_policy": {
+      "options": {
+        "static_priority": "Static priority",
+        "lowest_latency": "Lowest latency (most responsive)"
+      }
+    },
     "feature_policy": {
       "options": {
         "intersection": "Features shared by every source",

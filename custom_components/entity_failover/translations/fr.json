@@ -11,6 +11,7 @@
         "data": {
           "name": "Nom de l'entité de secours",
           "sources": "Sources, par ordre de priorité",
+          "selection_policy": "Politique de sélection",
           "recovery_stability": "Délai de stabilité avant retour vers une source prioritaire",
           "failure_cooldown": "Durée d'exclusion temporaire après échec",
           "feature_policy": "Fonctions exposées par l'entité",
@@ -21,6 +22,7 @@
         },
         "data_description": {
           "sources": "La première source disponible est utilisée. Si elle échoue, Entity Failover passe à la suivante.",
+          "selection_policy": "Choisissez si les commandes sont acheminées selon une priorité statique ou selon la latence mesurée la plus faible.",
           "recovery_stability": "Une source plus prioritaire doit rester disponible pendant cette durée avant de redevenir active.",
           "failure_cooldown": "Après une erreur de commande, la source est ignorée pendant cette durée.",
           "feature_policy": "Choisissez si l'entité annonce uniquement les fonctions communes à toutes les sources ou celles de la source active.",
@@ -70,6 +72,7 @@
           "data": {
             "name": "Nom de l'entité de secours",
             "sources": "Sources, par ordre de priorité",
+            "selection_policy": "Politique de sélection",
             "recovery_stability": "Délai de stabilité avant retour vers une source prioritaire",
             "failure_cooldown": "Durée d'exclusion temporaire après échec",
             "feature_policy": "Fonctions exposées par l'entité",
@@ -80,6 +83,7 @@
           },
           "data_description": {
             "sources": "La première source disponible est utilisée. Si elle échoue, Entity Failover passe à la suivante.",
+            "selection_policy": "Choisissez si les commandes sont acheminées selon une priorité statique ou selon la latence mesurée la plus faible.",
             "recovery_stability": "Une source plus prioritaire doit rester disponible pendant cette durée avant de redevenir active.",
             "failure_cooldown": "Après une erreur de commande, la source est ignorée pendant cette durée.",
             "feature_policy": "Choisissez si l'entité annonce uniquement les fonctions communes à toutes les sources ou celles de la source active.",
@@ -94,6 +98,7 @@
           "data": {
             "name": "Nom de l'entité de secours",
             "sources": "Sources, par ordre de priorité",
+            "selection_policy": "Politique de sélection",
             "recovery_stability": "Délai de stabilité avant retour vers une source prioritaire",
             "failure_cooldown": "Durée d'exclusion temporaire après échec",
             "feature_policy": "Fonctions exposées par l'entité",
@@ -104,6 +109,7 @@
           },
           "data_description": {
             "sources": "La première source disponible est utilisée. Si elle échoue, Entity Failover passe à la suivante.",
+            "selection_policy": "Choisissez si les commandes sont acheminées selon une priorité statique ou selon la latence mesurée la plus faible.",
             "recovery_stability": "Une source plus prioritaire doit rester disponible pendant cette durée avant de redevenir active.",
             "failure_cooldown": "Après une erreur de commande, la source est ignorée pendant cette durée.",
             "feature_policy": "Choisissez si l'entité annonce uniquement les fonctions communes à toutes les sources ou celles de la source active.",
@@ -151,6 +157,12 @@
     }
   },
   "selector": {
+    "selection_policy": {
+      "options": {
+        "static_priority": "Priorité statique",
+        "lowest_latency": "Latence la plus faible (le plus réactif)"
+      }
+    },
     "feature_policy": {
       "options": {
         "intersection": "Fonctions communes à toutes les sources",

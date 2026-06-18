@@ -46,6 +46,7 @@ from .model import (
     CommandValidation,
     FailoverConfig,
     ManagerDiagnostics,
+    SelectionPolicy,
     SourceHealth,
 )
 
@@ -126,6 +127,8 @@ class FailoverManager:
     def degraded(self) -> bool:
         """Return whether the failover entity is degraded."""
 
+        if self.config.selection_policy == SelectionPolicy.LOWEST_LATENCY:
+            return bool(self.excluded_sources)
         active_index = self.active_priority_index
         return (active_index is not None and active_index > 0) or bool(
             self.excluded_sources
@@ -278,22 +281,64 @@ class FailoverManager:
             self.state_source = None
             return
 
-        best_index = self.config.sources.index(best)
-        active_index = self.config.sources.index(self.active_source)
-        if best_index < active_index:
-            self._schedule_recovery(best)
-            return
+        if self.config.selection_policy == SelectionPolicy.LOWEST_LATENCY:
+            if best != self.active_source:
+                self._schedule_recovery(best)
+                return
+        else:
+            best_index = self.config.sources.index(best)
+            active_index = self.config.sources.index(self.active_source)
+            if best_index < active_index:
+                self._schedule_recovery(best)
+                return
 
         if best == self.active_source:
             self._cancel_recovery_timer()
 
     def _best_operational_source(self) -> str | None:
-        """Return the highest-priority operational source."""
+        """Return the best operational source according to selection policy."""
 
-        for source in self.config.sources:
-            if self._is_source_operational(source):
-                return source
-        return None
+        operational = [s for s in self.config.sources if self._is_source_operational(s)]
+        if not operational:
+            return None
+
+        if self.config.selection_policy == SelectionPolicy.LOWEST_LATENCY:
+            # First, check if there's any operational source that has NO
+            # latency measurements yet.
+            unmeasured = [s for s in operational if not self._health[s].latencies]
+            if unmeasured:
+                return unmeasured[0]
+
+            # If all operational sources have measurements, check if any
+            # source's measurement is "stale".
+            now = dt_util.utcnow()
+            stale_threshold = timedelta(seconds=300)
+            stale_sources = [
+                s
+                for s in operational
+                if self._health[s].last_measured is not None
+                and now - self._health[s].last_measured > stale_threshold
+            ]
+            if stale_sources:
+                return min(
+                    stale_sources,
+                    key=lambda s: (
+                        self._health[s].last_measured,
+                        self.config.sources.index(s),
+                    ),
+                )
+
+            # Otherwise, pick the one with the lowest average latency
+            return min(
+                operational,
+                key=lambda s: (
+                    self._health[s].average_latency or 0.0,
+                    self.config.sources.index(s),
+                ),
+            )
+
+        # Default / Fallback: static_priority
+        return operational[0]
 
     def _is_source_operational(self, source: str) -> bool:
         """Return whether a source can be used."""
@@ -360,6 +405,24 @@ class FailoverManager:
             self.config.name,
             old,
             new,
+        )
+
+    def _record_latency(self, source: str, latency: float) -> None:
+        """Record a latency measurement for a source."""
+
+        if source not in self._health:
+            return
+        health = self._health[source]
+        now = dt_util.utcnow()
+        health.latencies.append(latency)
+        if len(health.latencies) > 5:
+            health.latencies.pop(0)
+        health.last_measured = now
+        _LOGGER.debug(
+            "Recorded latency of %.3fs for source %s (average: %.3fs)",
+            latency,
+            source,
+            health.average_latency,
         )
 
     async def async_clear_failures(self) -> None:
@@ -429,6 +492,7 @@ class FailoverManager:
                     source,
                     attempts,
                 )
+                start_time = dt_util.utcnow()
                 await self._async_call_source(
                     source,
                     service,
@@ -437,6 +501,8 @@ class FailoverManager:
                     blocking=(
                         self.config.command_validation
                         == CommandValidation.STATE_CONFIRMATION
+                        or self.config.selection_policy
+                        == SelectionPolicy.LOWEST_LATENCY
                     ),
                 )
                 expected = self.adapter.expected_result(service, before, data)
@@ -448,6 +514,8 @@ class FailoverManager:
                         raise HomeAssistantError(
                             f"{source} did not confirm {self.config.domain}.{service}"
                         )
+                latency = (dt_util.utcnow() - start_time).total_seconds()
+                self._record_latency(source, latency)
                 self.last_command_result = CommandResult(
                     service=service,
                     source=source,
@@ -460,6 +528,11 @@ class FailoverManager:
                     source,
                     expected,
                 )
+                old_active = self.active_source
+                self._refresh_health()
+                self._select_after_state_change(old_active)
+                if self.active_source != old_active:
+                    self._record_failover(old_active, self.active_source)
                 _LOGGER.debug(
                     "Entity Failover %s completed %s.%s on %s (attempt %d)",
                     self.config.name,

@@ -15,6 +15,7 @@ from custom_components.entity_failover.model import (
     CommandValidation,
     FailoverConfig,
     FeaturePolicy,
+    SelectionPolicy,
 )
 
 
@@ -245,6 +246,42 @@ async def test_service_call_validation_does_not_block_on_slow_source(hass) -> No
 
 
 @pytest.mark.asyncio
+async def test_latency_selection_waits_for_service_call_to_measure_latency(
+    hass,
+) -> None:
+    """Lowest-latency selection waits for service completion before recording."""
+
+    call_started = asyncio.Event()
+    allow_finish = asyncio.Event()
+
+    async def _turn_on(call):
+        call_started.set()
+        await allow_finish.wait()
+        hass.states.async_set(call.data["entity_id"], "on")
+
+    hass.services.async_register("switch", "turn_on", _turn_on)
+    hass.states.async_set("switch.primary", "off")
+    hass.states.async_set("switch.backup", "off")
+    manager = FailoverManager(
+        hass,
+        _config(selection_policy=SelectionPolicy.LOWEST_LATENCY),
+    )
+    await manager.async_start()
+
+    task = asyncio.create_task(manager.async_call_service("turn_on"))
+    await asyncio.wait_for(call_started.wait(), timeout=0.1)
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+    assert not task.done()
+    assert not manager._health["switch.primary"].latencies
+
+    allow_finish.set()
+    await asyncio.wait_for(task, timeout=0.1)
+    assert manager._health["switch.primary"].latencies
+    await manager.async_unload()
+
+
+@pytest.mark.asyncio
 async def test_state_confirmation_accepts_any_configured_source(hass) -> None:
     """State confirmation succeeds when a peer source publishes the result."""
 
@@ -431,4 +468,151 @@ async def test_repairs_alert_can_be_enabled_with_delay(hass) -> None:
 
     assert manager.active_source is None
     assert manager.diagnostics().repairs_issue_active is True
+    await manager.async_unload()
+
+
+@pytest.mark.asyncio
+async def test_latency_selection_bootstraps_and_explores(hass) -> None:
+    """Unmeasured sources are tried first in configured priority order."""
+
+    calls: list[str] = []
+
+    async def _turn_on(call):
+        entity_id = call.data["entity_id"]
+        calls.append(entity_id)
+        hass.states.async_set(entity_id, "on")
+
+    hass.services.async_register("switch", "turn_on", _turn_on)
+    hass.states.async_set("switch.primary", "off")
+    hass.states.async_set("switch.backup", "off")
+
+    manager = FailoverManager(
+        hass,
+        _config(
+            selection_policy=SelectionPolicy.LOWEST_LATENCY,
+            recovery_stability=0,
+            command_validation=CommandValidation.STATE_CONFIRMATION,
+        ),
+    )
+    await manager.async_start()
+
+    # Initially, both are unmeasured. The first in configured order
+    # (switch.primary) is active.
+    assert manager.active_source == "switch.primary"
+    assert not manager._health["switch.primary"].latencies
+    assert not manager._health["switch.backup"].latencies
+
+    # Send a command. It goes to switch.primary, and measures latency.
+    await manager.async_call_service("turn_on")
+    await hass.async_block_till_done()
+
+    assert calls == ["switch.primary"]
+    assert manager._health["switch.primary"].latencies
+    assert not manager._health["switch.backup"].latencies
+
+    # Now switch.backup is the only unmeasured operational source.
+    # It should become the active source. We must advance time to trigger
+    # the recovery timer callback.
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=1))
+    await hass.async_block_till_done()
+    assert manager.active_source == "switch.backup"
+
+    # Next command should route to switch.backup to measure it.
+    await manager.async_call_service("turn_on")
+    await hass.async_block_till_done()
+
+    assert calls == ["switch.primary", "switch.backup"]
+    assert manager._health["switch.backup"].latencies
+
+    # Once all are measured, it picks the faster one.
+    # Since they are equal, it falls back to manual order (switch.primary).
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=1))
+    await hass.async_block_till_done()
+    assert manager.active_source == "switch.primary"
+    await manager.async_unload()
+
+
+@pytest.mark.asyncio
+async def test_latency_selection_prefers_lower_average(hass) -> None:
+    """The manager routes to the source with the lowest average latency."""
+
+    async def _turn_on(call):
+        entity_id = call.data["entity_id"]
+        hass.states.async_set(entity_id, "on")
+
+    hass.services.async_register("switch", "turn_on", _turn_on)
+    hass.states.async_set("switch.primary", "off")
+    hass.states.async_set("switch.backup", "off")
+
+    manager = FailoverManager(
+        hass,
+        _config(
+            selection_policy=SelectionPolicy.LOWEST_LATENCY,
+            recovery_stability=0,
+        ),
+    )
+    await manager.async_start()
+
+    # Manually seed latencies to simulate measurements
+    now = dt_util.utcnow()
+    manager._health["switch.primary"].latencies = [2.0, 2.5]
+    manager._health["switch.primary"].last_measured = now
+    manager._health["switch.backup"].latencies = [0.5, 0.4]
+    manager._health["switch.backup"].last_measured = now
+
+    # Trigger a refresh
+    old_active = manager.active_source
+    manager._refresh_health()
+    manager._select_after_state_change(old_active)
+
+    # Backup should be active because its average latency (0.45s)
+    # is lower than primary (2.25s).
+    # We must advance time to trigger the recovery timer callback.
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=1))
+    await hass.async_block_till_done()
+    assert manager.active_source == "switch.backup"
+    assert not manager.degraded
+    await manager.async_unload()
+
+
+@pytest.mark.asyncio
+async def test_latency_selection_refreshes_stale_source(hass) -> None:
+    """A stale measurement triggers exploration to refresh statistics."""
+
+    async def _turn_on(call):
+        entity_id = call.data["entity_id"]
+        hass.states.async_set(entity_id, "on")
+
+    hass.services.async_register("switch", "turn_on", _turn_on)
+    hass.states.async_set("switch.primary", "off")
+    hass.states.async_set("switch.backup", "off")
+
+    manager = FailoverManager(
+        hass,
+        _config(
+            selection_policy=SelectionPolicy.LOWEST_LATENCY,
+            recovery_stability=0,
+        ),
+    )
+    await manager.async_start()
+
+    # Primary is fast (0.1s) and backup is slow (2.0s)
+    now = dt_util.utcnow()
+    manager._health["switch.primary"].latencies = [0.1]
+    manager._health["switch.primary"].last_measured = now
+    manager._health["switch.backup"].latencies = [2.0]
+    # Backup measurement is 6 minutes old (stale)
+    manager._health["switch.backup"].last_measured = now - timedelta(seconds=360)
+
+    # Trigger refresh
+    old_active = manager.active_source
+    manager._refresh_health()
+    manager._select_after_state_change(old_active)
+
+    # Backup should become active because its latency measurement is
+    # stale and needs refresh.
+    # We must advance time to trigger the recovery timer callback.
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=1))
+    await hass.async_block_till_done()
+    assert manager.active_source == "switch.backup"
     await manager.async_unload()

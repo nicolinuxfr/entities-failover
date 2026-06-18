@@ -18,6 +18,7 @@ from .const import (
     CONF_FEATURE_POLICY,
     CONF_RECOVERY_STABILITY,
     CONF_REPAIRS_DELAY,
+    CONF_SELECTION_POLICY,
     CONF_SOURCES,
     DEFAULT_COMMAND_VALIDATION,
     DEFAULT_CONFIRMATION_TIMEOUT,
@@ -25,6 +26,7 @@ from .const import (
     DEFAULT_FEATURE_POLICY,
     DEFAULT_RECOVERY_STABILITY,
     DEFAULT_REPAIRS_DELAY,
+    DEFAULT_SELECTION_POLICY,
 )
 
 
@@ -42,6 +44,13 @@ class FeaturePolicy(StrEnum):
     ACTIVE_SOURCE = "active_source"
 
 
+class SelectionPolicy(StrEnum):
+    """Source selection policies."""
+
+    STATIC_PRIORITY = "static_priority"
+    LOWEST_LATENCY = "lowest_latency"
+
+
 @dataclass(slots=True, frozen=True)
 class FailoverConfig:
     """Normalized config entry data/options."""
@@ -57,6 +66,7 @@ class FailoverConfig:
     recovery_stability: float = DEFAULT_RECOVERY_STABILITY
     feature_policy: FeaturePolicy = FeaturePolicy.INTERSECTION
     repairs_delay: float = DEFAULT_REPAIRS_DELAY
+    selection_policy: SelectionPolicy = SelectionPolicy.STATIC_PRIORITY
     subentry_id: str | None = None
 
     @classmethod
@@ -92,6 +102,9 @@ class FailoverConfig:
                 data.get(CONF_FEATURE_POLICY, DEFAULT_FEATURE_POLICY)
             ),
             repairs_delay=float(data.get(CONF_REPAIRS_DELAY, DEFAULT_REPAIRS_DELAY)),
+            selection_policy=SelectionPolicy(
+                data.get(CONF_SELECTION_POLICY, DEFAULT_SELECTION_POLICY)
+            ),
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -110,6 +123,7 @@ class FailoverConfig:
             "recovery_stability": self.recovery_stability,
             "feature_policy": self.feature_policy.value,
             "repairs_delay": self.repairs_delay,
+            "selection_policy": self.selection_policy.value,
         }
 
 
@@ -122,12 +136,21 @@ class SourceHealth:
     available: bool = False
     excluded_until: datetime | None = None
     last_error: str | None = None
+    latencies: list[float] = field(default_factory=list)
+    last_measured: datetime | None = None
 
     @property
     def excluded(self) -> bool:
         """Return whether the source is currently excluded."""
 
         return self.excluded_until is not None
+
+    @property
+    def average_latency(self) -> float | None:
+        """Return the average latency of the source."""
+        if not self.latencies:
+            return None
+        return sum(self.latencies) / len(self.latencies)
 
     def as_dict(self) -> dict[str, Any]:
         """Return a serializable representation."""
@@ -140,6 +163,11 @@ class SourceHealth:
             if self.excluded_until
             else None,
             "last_error": self.last_error,
+            "latencies": self.latencies,
+            "average_latency": self.average_latency,
+            "last_measured": self.last_measured.isoformat()
+            if self.last_measured
+            else None,
         }
 
 

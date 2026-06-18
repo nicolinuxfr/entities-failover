@@ -20,6 +20,7 @@ from custom_components.entity_failover.const import (
     CONF_FEATURE_POLICY,
     CONF_RECOVERY_STABILITY,
     CONF_REPAIRS_DELAY,
+    CONF_SELECTION_POLICY,
     CONF_SOURCES,
     DEFAULT_REPAIRS_DELAY,
     DOMAIN,
@@ -171,6 +172,7 @@ async def test_config_flow_creates_entry(hass) -> None:
     assert subentry["title"] == "Kitchen Switch"
     assert subentry["subentry_type"] == SUBENTRY_TYPE_FAILOVER
     assert subentry["data"][CONF_DOMAIN] == "switch"
+    assert subentry["data"][CONF_SELECTION_POLICY] == "static_priority"
     assert set(subentry["data"]) == {
         "name",
         CONF_DOMAIN,
@@ -181,6 +183,7 @@ async def test_config_flow_creates_entry(hass) -> None:
         CONF_RECOVERY_STABILITY,
         CONF_FEATURE_POLICY,
         CONF_REPAIRS_DELAY,
+        CONF_SELECTION_POLICY,
     }
 
 
@@ -402,3 +405,37 @@ async def test_subentry_flow_reorders_sources_with_update_listener(hass) -> None
     assert result["type"] == "abort"
     updated = entry.subentries[subentry.subentry_id]
     assert updated.data[CONF_SOURCES] == ["light.three", "light.one", "light.two"]
+
+
+@pytest.mark.asyncio
+async def test_config_flow_supports_lowest_latency_policy(hass) -> None:
+    """The config flow allows selecting lowest_latency selection policy."""
+
+    hass.states.async_set("switch.one", "on")
+    hass.states.async_set("switch.two", "off")
+
+    flow = EntityFailoverConfigFlow()
+    flow.hass = hass
+    flow.context = {"source": "user"}
+
+    result = await flow.async_step_user()
+    assert result["type"] == "form"
+
+    result = await flow.async_step_user(
+        {
+            "name": "Kitchen Switch",
+            CONF_SOURCES: ["switch.one", "switch.two"],
+            CONF_SELECTION_POLICY: "lowest_latency",
+            CONF_RECOVERY_STABILITY: 30,
+            CONF_FAILURE_COOLDOWN: 60,
+            ADVANCED_SECTION: {
+                CONF_FEATURE_POLICY: "intersection",
+                CONF_COMMAND_VALIDATION: "service_call",
+                CONF_CONFIRMATION_TIMEOUT: 10,
+                CONF_REPAIRS_DELAY: 0,
+            },
+        },
+    )
+    assert result["type"] == "create_entry"
+    subentry = next(iter(result["subentries"]))
+    assert subentry["data"][CONF_SELECTION_POLICY] == "lowest_latency"

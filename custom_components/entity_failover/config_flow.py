@@ -23,6 +23,7 @@ from .const import (
     CONF_FEATURE_POLICY,
     CONF_RECOVERY_STABILITY,
     CONF_REPAIRS_DELAY,
+    CONF_SELECTION_POLICY,
     CONF_SOURCES,
     DEFAULT_COMMAND_VALIDATION,
     DEFAULT_CONFIRMATION_TIMEOUT,
@@ -30,9 +31,11 @@ from .const import (
     DEFAULT_FEATURE_POLICY,
     DEFAULT_RECOVERY_STABILITY,
     DEFAULT_REPAIRS_DELAY,
+    DEFAULT_SELECTION_POLICY,
     DOMAIN,
     FEATURE_POLICIES,
     NAME,
+    SELECTION_POLICIES,
     SUBENTRY_TYPE_FAILOVER,
     SUPPORTED_DOMAINS,
 )
@@ -217,6 +220,15 @@ def _general_schema_fields(
     defaults = defaults or {}
     return {
         vol.Required(
+            CONF_SELECTION_POLICY,
+            default=defaults.get(CONF_SELECTION_POLICY, DEFAULT_SELECTION_POLICY),
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=SELECTION_POLICIES,
+                translation_key=CONF_SELECTION_POLICY,
+            )
+        ),
+        vol.Required(
             CONF_RECOVERY_STABILITY,
             default=defaults.get(CONF_RECOVERY_STABILITY, DEFAULT_RECOVERY_STABILITY),
         ): selector.NumberSelector(
@@ -369,6 +381,9 @@ def _failover_data_from_user_input(
             user_input.get(CONF_FEATURE_POLICY, DEFAULT_FEATURE_POLICY),
         ),
         CONF_REPAIRS_DELAY: advanced.get(CONF_REPAIRS_DELAY, DEFAULT_REPAIRS_DELAY),
+        CONF_SELECTION_POLICY: user_input.get(
+            CONF_SELECTION_POLICY, DEFAULT_SELECTION_POLICY
+        ),
     }
 
 
