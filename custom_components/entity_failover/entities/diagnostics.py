@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.binary_sensor import BinarySensorEntity
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntity,
+)
 from homeassistant.components.sensor import SensorEntity
 
 from ..const import (
@@ -75,6 +78,7 @@ class FailoverActiveSourceSensor(FailoverEntityMixin, SensorEntity):
 class FailoverActiveBinarySensor(FailoverEntityMixin, BinarySensorEntity):
     """Diagnostic binary sensor exposing active failover."""
 
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
     _attr_icon = "mdi:source-branch"
     _attr_translation_key = "failover_active"
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.fan import (
     ATTR_DIRECTION,
     ATTR_OSCILLATING,
@@ -20,6 +21,7 @@ from homeassistant.components.light import (
 )
 from homeassistant.components.number import ATTR_MAX, ATTR_MIN, ATTR_MODE, ATTR_STEP
 from homeassistant.const import (
+    ATTR_DEVICE_CLASS,
     ATTR_ENTITY_ID,
     ATTR_FRIENDLY_NAME,
     ATTR_SUPPORTED_FEATURES,
@@ -159,7 +161,9 @@ async def test_setup_light_entity_exposes_light_state(hass) -> None:
     failover_active = hass.states.get("binary_sensor.living_room_light_failover_active")
     assert failover_active is not None
     assert failover_active.state == "off"
-    assert "device_class" not in failover_active.attributes
+    assert (
+        failover_active.attributes[ATTR_DEVICE_CLASS] == BinarySensorDeviceClass.PROBLEM
+    )
     assert failover_active.attributes["failover_active"] is False
 
     await hass.services.async_call(
@@ -275,7 +279,9 @@ async def test_setup_light_entity_without_available_source(hass) -> None:
     failover_active = hass.states.get("binary_sensor.unavailable_light_failover_active")
     assert failover_active is not None
     assert failover_active.state == "on"
-    assert "device_class" not in failover_active.attributes
+    assert (
+        failover_active.attributes[ATTR_DEVICE_CLASS] == BinarySensorDeviceClass.PROBLEM
+    )
     assert failover_active.attributes["failover_active"] is True
 
     assert hass.states.get("button.unavailable_light_retry_excluded_sources") is None
