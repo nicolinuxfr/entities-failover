@@ -138,13 +138,16 @@ class EntityFailoverSubentryFlow(config_entries.ConfigSubentryFlow):
                 subentry.subentry_id,
             )
             if error is None:
-                return self.async_update_reload_and_abort(
-                    self._get_entry(),
-                    subentry,
+                entry = self._get_entry()
+                changed = self.hass.config_entries.async_update_subentry(
+                    entry=entry,
+                    subentry=subentry,
                     title=str(user_input[CONF_NAME]),
                     data=_failover_data_from_user_input(user_input, domain, sources),
-                    reload_even_if_entry_is_unchanged=False,
                 )
+                if changed:
+                    self.hass.config_entries.async_schedule_reload(entry.entry_id)
+                return self.async_abort(reason="reconfigure_successful")
             errors[CONF_SOURCES] = error
 
         return self.async_show_form(

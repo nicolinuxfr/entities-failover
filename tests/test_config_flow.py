@@ -294,3 +294,70 @@ async def test_subentry_flow_reconfigures_failover(hass) -> None:
     updated = entry.subentries[subentry.subentry_id]
     assert updated.title == "Updated Switch"
     assert updated.data[CONF_FEATURE_POLICY] == "active_source"
+
+
+@pytest.mark.asyncio
+async def test_subentry_flow_reorders_sources_with_update_listener(hass) -> None:
+    """Reordering sources works after the integration entry has been set up."""
+
+    hass.states.async_set("light.one", "on", {"supported_color_modes": ["brightness"]})
+    hass.states.async_set("light.two", "off", {"supported_color_modes": ["brightness"]})
+    hass.states.async_set(
+        "light.three", "off", {"supported_color_modes": ["brightness"]}
+    )
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title=NAME,
+        unique_id=DOMAIN,
+        data={},
+        subentries_data=[
+            {
+                "data": {
+                    "name": "Living Room Light",
+                    CONF_DOMAIN: "light",
+                    CONF_SOURCES: ["light.one", "light.two", "light.three"],
+                    CONF_COMMAND_VALIDATION: "service_call",
+                    CONF_CONFIRMATION_TIMEOUT: 10,
+                    CONF_FAILURE_COOLDOWN: 60,
+                    CONF_RECOVERY_STABILITY: 30,
+                    CONF_FEATURE_POLICY: "intersection",
+                },
+                "subentry_type": SUBENTRY_TYPE_FAILOVER,
+                "title": "Living Room Light",
+                "unique_id": "unique-light-subentry",
+            }
+        ],
+        version=2,
+    )
+    entry.add_to_hass(hass)
+    subentry = next(iter(entry.subentries.values()))
+
+    async def _update_listener(*_) -> None:
+        pass
+
+    entry.async_on_unload(entry.add_update_listener(_update_listener))
+
+    result = await hass.config_entries.subentries.async_init(
+        (entry.entry_id, SUBENTRY_TYPE_FAILOVER),
+        context={"source": "reconfigure", "subentry_id": subentry.subentry_id},
+    )
+    assert result["type"] == "form"
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            "name": "Living Room Light",
+            CONF_SOURCES: ["light.three", "light.one", "light.two"],
+            CONF_RECOVERY_STABILITY: 30,
+            CONF_FAILURE_COOLDOWN: 60,
+            ADVANCED_SECTION: {
+                CONF_FEATURE_POLICY: "intersection",
+                CONF_COMMAND_VALIDATION: "service_call",
+                CONF_CONFIRMATION_TIMEOUT: 10,
+            },
+        },
+    )
+
+    assert result["type"] == "abort"
+    updated = entry.subentries[subentry.subentry_id]
+    assert updated.data[CONF_SOURCES] == ["light.three", "light.one", "light.two"]
