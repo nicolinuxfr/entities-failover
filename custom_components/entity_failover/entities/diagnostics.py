@@ -4,16 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.binary_sensor import (
-    BinarySensorDeviceClass,
-    BinarySensorEntity,
-)
+from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.components.sensor import SensorEntity
 
 from ..const import (
     ATTR_ACTIVE_SOURCE,
     ATTR_FAILOVER_ACTIVE,
-    ATTR_PREFERRED_SOURCE,
+    ATTR_NOMINAL_SOURCE,
     ATTR_SOURCE_COUNT,
     ATTR_STATE_SOURCE,
 )
@@ -54,7 +51,7 @@ class FailoverActiveSourceSensor(FailoverEntityMixin, SensorEntity):
         return {
             ATTR_ACTIVE_SOURCE: self.manager.active_source,
             ATTR_STATE_SOURCE: self.manager.effective_state_source,
-            ATTR_PREFERRED_SOURCE: self.manager.preferred_source,
+            ATTR_NOMINAL_SOURCE: self.manager.nominal_source,
             "active_source_name": friendly_name(
                 self.manager.hass,
                 self.manager.active_source,
@@ -63,9 +60,9 @@ class FailoverActiveSourceSensor(FailoverEntityMixin, SensorEntity):
                 self.manager.hass,
                 self.manager.effective_state_source,
             ),
-            "preferred_source_name": friendly_name(
+            "nominal_source_name": friendly_name(
                 self.manager.hass,
-                self.manager.preferred_source,
+                self.manager.nominal_source,
             ),
             "sources": sources,
             "source_names": [
@@ -78,7 +75,7 @@ class FailoverActiveSourceSensor(FailoverEntityMixin, SensorEntity):
 class FailoverActiveBinarySensor(FailoverEntityMixin, BinarySensorEntity):
     """Diagnostic binary sensor exposing active failover."""
 
-    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_icon = "mdi:source-branch"
     _attr_translation_key = "failover_active"
 
     def __init__(self, manager: FailoverManager) -> None:
@@ -94,7 +91,7 @@ class FailoverActiveBinarySensor(FailoverEntityMixin, BinarySensorEntity):
 
     @property
     def is_on(self) -> bool:
-        """Return whether the preferred source is unavailable or excluded."""
+        """Return whether failover is active."""
 
         return self.manager.failover_active
 

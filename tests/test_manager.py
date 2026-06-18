@@ -480,7 +480,7 @@ async def test_static_priority_failover_active_when_primary_unavailable(hass) ->
     manager = FailoverManager(hass, _config())
     await manager.async_start()
 
-    assert manager.preferred_source == "switch.primary"
+    assert manager.nominal_source == "switch.primary"
     assert manager.active_source == "switch.backup"
     assert manager.failover_active
     assert manager.state_attributes["failover_active"] is True
@@ -488,7 +488,9 @@ async def test_static_priority_failover_active_when_primary_unavailable(hass) ->
 
 
 @pytest.mark.asyncio
-async def test_latency_failover_active_when_fastest_source_unavailable(hass) -> None:
+async def test_latency_failover_active_when_fastest_source_unavailable(
+    hass,
+) -> None:
     """Failover is active when the measured fastest source is down."""
 
     hass.states.async_set("switch.primary", "unavailable")
@@ -502,10 +504,10 @@ async def test_latency_failover_active_when_fastest_source_unavailable(hass) -> 
     manager._health["switch.backup"].latencies = [1.0]
     await manager.async_start()
 
-    assert manager.preferred_source == "switch.primary"
+    assert manager.nominal_source == "switch.primary"
     assert manager.active_source == "switch.backup"
     assert manager.failover_active
-    assert manager.state_attributes["preferred_source"] == "switch.primary"
+    assert manager.state_attributes["nominal_source"] == "switch.primary"
     await manager.async_unload()
 
 
@@ -564,6 +566,14 @@ async def test_latency_selection_bootstraps_and_explores(hass) -> None:
 
     # Once all are measured, it picks the faster one.
     # Since they are equal, it falls back to manual order (switch.primary).
+    now = dt_util.utcnow()
+    manager._health["switch.primary"].latencies = [1.0]
+    manager._health["switch.primary"].last_measured = now
+    manager._health["switch.backup"].latencies = [1.0]
+    manager._health["switch.backup"].last_measured = now
+    old_active = manager.active_source
+    manager._refresh_health()
+    manager._select_after_state_change(old_active)
     async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=1))
     await hass.async_block_till_done()
     assert manager.active_source == "switch.primary"

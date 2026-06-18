@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.fan import (
     ATTR_DIRECTION,
     ATTR_OSCILLATING,
@@ -149,7 +148,7 @@ async def test_setup_light_entity_exposes_light_state(hass) -> None:
     assert source is not None
     assert source.state == "Main light relay"
     assert source.attributes["active_source"] == "light.one"
-    assert source.attributes["preferred_source"] == "light.one"
+    assert source.attributes["nominal_source"] == "light.one"
     assert source.attributes["sources"] == ["light.one", "light.two"]
     assert source.attributes["source_names"] == ["Main light relay", "two"]
 
@@ -157,11 +156,10 @@ async def test_setup_light_entity_exposes_light_state(hass) -> None:
         hass.states.get("binary_sensor.living_room_light_primary_source_inactive")
         is None
     )
-
     failover_active = hass.states.get("binary_sensor.living_room_light_failover_active")
     assert failover_active is not None
     assert failover_active.state == "off"
-    assert failover_active.attributes["device_class"] == BinarySensorDeviceClass.PROBLEM
+    assert "device_class" not in failover_active.attributes
     assert failover_active.attributes["failover_active"] is False
 
     await hass.services.async_call(
@@ -274,11 +272,10 @@ async def test_setup_light_entity_without_available_source(hass) -> None:
         hass.states.get("binary_sensor.unavailable_light_primary_source_inactive")
         is None
     )
-
     failover_active = hass.states.get("binary_sensor.unavailable_light_failover_active")
     assert failover_active is not None
     assert failover_active.state == "on"
-    assert failover_active.attributes["device_class"] == BinarySensorDeviceClass.PROBLEM
+    assert "device_class" not in failover_active.attributes
     assert failover_active.attributes["failover_active"] is True
 
     assert hass.states.get("button.unavailable_light_retry_excluded_sources") is None

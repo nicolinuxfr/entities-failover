@@ -34,7 +34,7 @@ from .const import (
     ATTR_DEGRADED,
     ATTR_EXCLUDED_SOURCES,
     ATTR_FAILOVER_ACTIVE,
-    ATTR_PREFERRED_SOURCE,
+    ATTR_NOMINAL_SOURCE,
     ATTR_PRIORITY_INDEX,
     ATTR_SOURCES_DESYNCHRONIZED,
     ATTR_STATE_SOURCE,
@@ -136,8 +136,8 @@ class FailoverManager:
         )
 
     @property
-    def preferred_source(self) -> str | None:
-        """Return the source the current selection policy would prefer."""
+    def nominal_source(self) -> str | None:
+        """Return the source expected by the current selection policy."""
 
         if not self.config.sources:
             return None
@@ -159,10 +159,10 @@ class FailoverManager:
 
     @property
     def failover_active(self) -> bool:
-        """Return whether routing has moved away from the preferred source."""
+        """Return whether routing has moved away from the nominal source."""
 
-        preferred = self.preferred_source
-        return preferred is not None and not self._is_source_operational(preferred)
+        nominal = self.nominal_source
+        return nominal is not None and not self._is_source_operational(nominal)
 
     @property
     def available_sources(self) -> list[str]:
@@ -194,7 +194,7 @@ class FailoverManager:
             ATTR_STATE_SOURCE: self.effective_state_source,
             ATTR_SOURCES_DESYNCHRONIZED: self.sources_desynchronized,
             ATTR_PRIORITY_INDEX: self.active_priority_index,
-            ATTR_PREFERRED_SOURCE: self.preferred_source,
+            ATTR_NOMINAL_SOURCE: self.nominal_source,
             ATTR_DEGRADED: self.degraded,
             ATTR_FAILOVER_ACTIVE: self.failover_active,
             ATTR_AVAILABLE_SOURCES: self.available_sources,
