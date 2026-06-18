@@ -66,14 +66,16 @@ def test_single_hacs_integration_directory() -> None:
     assert [path.name for path in integrations] == ["entity_failover"]
 
 
-def test_local_brand_icons_are_present() -> None:
-    """The integration ships local brand icons for Home Assistant and HACS."""
+def test_local_brand_images_are_present() -> None:
+    """The integration ships local brand images for Home Assistant and HACS."""
 
     assert (BRAND / "icon.svg").is_file()
 
     expected_sizes = {
         "icon.png": (256, 256),
         "icon@2x.png": (512, 512),
+        "logo.png": (256, 256),
+        "logo@2x.png": (512, 512),
     }
 
     for filename, expected_size in expected_sizes.items():
