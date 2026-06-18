@@ -30,10 +30,11 @@ from .adapters import (
 )
 from .const import (
     ATTR_ACTIVE_SOURCE,
-    ATTR_ALL_SOURCES_UNAVAILABLE,
     ATTR_AVAILABLE_SOURCES,
     ATTR_DEGRADED,
     ATTR_EXCLUDED_SOURCES,
+    ATTR_FAILOVER_ACTIVE,
+    ATTR_PREFERRED_SOURCE,
     ATTR_PRIORITY_INDEX,
     ATTR_SOURCES_DESYNCHRONIZED,
     ATTR_STATE_SOURCE,
@@ -135,6 +136,35 @@ class FailoverManager:
         )
 
     @property
+    def preferred_source(self) -> str | None:
+        """Return the source the current selection policy would prefer."""
+
+        if not self.config.sources:
+            return None
+        if self.config.selection_policy == SelectionPolicy.LOWEST_LATENCY:
+            measured = [
+                source
+                for source in self.config.sources
+                if self._health[source].average_latency is not None
+            ]
+            if measured:
+                return min(
+                    measured,
+                    key=lambda source: (
+                        self._health[source].average_latency or 0.0,
+                        self.config.sources.index(source),
+                    ),
+                )
+        return self.config.sources[0]
+
+    @property
+    def failover_active(self) -> bool:
+        """Return whether routing has moved away from the preferred source."""
+
+        preferred = self.preferred_source
+        return preferred is not None and not self._is_source_operational(preferred)
+
+    @property
     def available_sources(self) -> list[str]:
         """Return currently available source ids."""
 
@@ -164,8 +194,9 @@ class FailoverManager:
             ATTR_STATE_SOURCE: self.effective_state_source,
             ATTR_SOURCES_DESYNCHRONIZED: self.sources_desynchronized,
             ATTR_PRIORITY_INDEX: self.active_priority_index,
+            ATTR_PREFERRED_SOURCE: self.preferred_source,
             ATTR_DEGRADED: self.degraded,
-            ATTR_ALL_SOURCES_UNAVAILABLE: self.active_source is None,
+            ATTR_FAILOVER_ACTIVE: self.failover_active,
             ATTR_AVAILABLE_SOURCES: self.available_sources,
             ATTR_EXCLUDED_SOURCES: self.excluded_sources,
         }

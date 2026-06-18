@@ -12,7 +12,8 @@ from homeassistant.components.sensor import SensorEntity
 
 from ..const import (
     ATTR_ACTIVE_SOURCE,
-    ATTR_ALL_SOURCES_UNAVAILABLE,
+    ATTR_FAILOVER_ACTIVE,
+    ATTR_PREFERRED_SOURCE,
     ATTR_SOURCE_COUNT,
     ATTR_STATE_SOURCE,
 )
@@ -22,15 +23,15 @@ from .base import FailoverEntityMixin
 
 
 class FailoverActiveSourceSensor(FailoverEntityMixin, SensorEntity):
-    """Diagnostic sensor exposing the active source name."""
+    """Diagnostic sensor exposing the selected source name."""
 
     _attr_icon = "mdi:source-branch"
-    _attr_translation_key = "active_source"
+    _attr_translation_key = "source"
 
     def __init__(self, manager: FailoverManager) -> None:
         """Initialize the sensor."""
 
-        super().__init__(manager, suffix="active_source")
+        super().__init__(manager, suffix="source")
 
     @property
     def available(self) -> bool:
@@ -40,17 +41,20 @@ class FailoverActiveSourceSensor(FailoverEntityMixin, SensorEntity):
 
     @property
     def native_value(self) -> str | None:
-        """Return active source name."""
+        """Return selected source name."""
 
         return friendly_name(self.manager.hass, self.manager.active_source)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return active source metadata."""
+        """Return selected source metadata."""
+
+        sources = list(self.manager.config.sources)
 
         return {
             ATTR_ACTIVE_SOURCE: self.manager.active_source,
             ATTR_STATE_SOURCE: self.manager.effective_state_source,
+            ATTR_PREFERRED_SOURCE: self.manager.preferred_source,
             "active_source_name": friendly_name(
                 self.manager.hass,
                 self.manager.active_source,
@@ -59,22 +63,28 @@ class FailoverActiveSourceSensor(FailoverEntityMixin, SensorEntity):
                 self.manager.hass,
                 self.manager.effective_state_source,
             ),
+            "preferred_source_name": friendly_name(
+                self.manager.hass,
+                self.manager.preferred_source,
+            ),
+            "sources": sources,
+            "source_names": [
+                friendly_name(self.manager.hass, source) for source in sources
+            ],
             ATTR_SOURCE_COUNT: len(self.manager.config.sources),
         }
 
 
-class FailoverPrimarySourceInactiveBinarySensor(
-    FailoverEntityMixin, BinarySensorEntity
-):
-    """Diagnostic binary sensor exposing primary source problems."""
+class FailoverActiveBinarySensor(FailoverEntityMixin, BinarySensorEntity):
+    """Diagnostic binary sensor exposing active failover."""
 
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
-    _attr_translation_key = "primary_source_inactive"
+    _attr_translation_key = "failover_active"
 
     def __init__(self, manager: FailoverManager) -> None:
         """Initialize the binary sensor."""
 
-        super().__init__(manager, suffix="primary_source_inactive")
+        super().__init__(manager, suffix="failover_active")
 
     @property
     def available(self) -> bool:
@@ -84,49 +94,15 @@ class FailoverPrimarySourceInactiveBinarySensor(
 
     @property
     def is_on(self) -> bool:
-        """Return whether the primary source is not cleanly active."""
+        """Return whether the preferred source is unavailable or excluded."""
 
-        return self.manager.active_priority_index != 0 or bool(
-            self.manager.excluded_sources
-        )
+        return self.manager.failover_active
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return source health detail."""
-
-        return self.manager.state_attributes
-
-
-class FailoverAllSourcesUnavailableBinarySensor(
-    FailoverEntityMixin, BinarySensorEntity
-):
-    """Diagnostic binary sensor exposing total source unavailability."""
-
-    _attr_device_class = BinarySensorDeviceClass.PROBLEM
-    _attr_translation_key = "all_sources_unavailable"
-
-    def __init__(self, manager: FailoverManager) -> None:
-        """Initialize the binary sensor."""
-
-        super().__init__(manager, suffix="all_sources_unavailable")
-
-    @property
-    def available(self) -> bool:
-        """Return entity availability."""
-
-        return True
-
-    @property
-    def is_on(self) -> bool:
-        """Return whether every source is unavailable or excluded."""
-
-        return self.manager.active_source is None
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return source availability detail."""
+        """Return source failover detail."""
 
         return {
             **self.manager.state_attributes,
-            ATTR_ALL_SOURCES_UNAVAILABLE: self.is_on,
+            ATTR_FAILOVER_ACTIVE: self.is_on,
         }

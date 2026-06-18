@@ -98,8 +98,8 @@ expose more capabilities but may change after a failover.
 Each synthetic device includes:
 
 - the main synthetic entity;
-- `sensor.<name>_active_source`;
-- `binary_sensor.<name>_degraded`;
+- `sensor.<name>_source`;
+- `binary_sensor.<name>_failover_active`;
 - `button.<name>_clear_failures`.
 
 `clear_failures` clears temporary exclusions and immediately recalculates the

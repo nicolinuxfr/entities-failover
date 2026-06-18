@@ -145,30 +145,24 @@ async def test_setup_light_entity_exposes_light_state(hass) -> None:
     assert state.attributes[ATTR_COLOR_MODE] == ColorMode.BRIGHTNESS
     assert state.attributes[ATTR_SUPPORTED_COLOR_MODES] == [ColorMode.BRIGHTNESS]
 
-    active_source = hass.states.get("sensor.living_room_light_active_source")
-    assert active_source is not None
-    assert active_source.state == "Main light relay"
-    assert active_source.attributes["active_source"] == "light.one"
+    source = hass.states.get("sensor.living_room_light_source")
+    assert source is not None
+    assert source.state == "Main light relay"
+    assert source.attributes["active_source"] == "light.one"
+    assert source.attributes["preferred_source"] == "light.one"
+    assert source.attributes["sources"] == ["light.one", "light.two"]
+    assert source.attributes["source_names"] == ["Main light relay", "two"]
 
-    primary_source_inactive = hass.states.get(
-        "binary_sensor.living_room_light_primary_source_inactive"
-    )
-    assert primary_source_inactive is not None
-    assert primary_source_inactive.state == "off"
     assert (
-        primary_source_inactive.attributes["device_class"]
-        == BinarySensorDeviceClass.PROBLEM
+        hass.states.get("binary_sensor.living_room_light_primary_source_inactive")
+        is None
     )
 
-    all_sources_unavailable = hass.states.get(
-        "binary_sensor.living_room_light_all_sources_unavailable"
-    )
-    assert all_sources_unavailable is not None
-    assert all_sources_unavailable.state == "off"
-    assert (
-        all_sources_unavailable.attributes["device_class"]
-        == BinarySensorDeviceClass.PROBLEM
-    )
+    failover_active = hass.states.get("binary_sensor.living_room_light_failover_active")
+    assert failover_active is not None
+    assert failover_active.state == "off"
+    assert failover_active.attributes["device_class"] == BinarySensorDeviceClass.PROBLEM
+    assert failover_active.attributes["failover_active"] is False
 
     await hass.services.async_call(
         "light",
@@ -272,29 +266,20 @@ async def test_setup_light_entity_without_available_source(hass) -> None:
     assert state is not None
     assert state.state == STATE_UNAVAILABLE
 
-    active_source = hass.states.get("sensor.unavailable_light_active_source")
-    assert active_source is not None
-    assert active_source.state == STATE_UNKNOWN
+    source = hass.states.get("sensor.unavailable_light_source")
+    assert source is not None
+    assert source.state == STATE_UNKNOWN
 
-    primary_source_inactive = hass.states.get(
-        "binary_sensor.unavailable_light_primary_source_inactive"
-    )
-    assert primary_source_inactive is not None
-    assert primary_source_inactive.state == "on"
     assert (
-        primary_source_inactive.attributes["device_class"]
-        == BinarySensorDeviceClass.PROBLEM
+        hass.states.get("binary_sensor.unavailable_light_primary_source_inactive")
+        is None
     )
 
-    all_sources_unavailable = hass.states.get(
-        "binary_sensor.unavailable_light_all_sources_unavailable"
-    )
-    assert all_sources_unavailable is not None
-    assert all_sources_unavailable.state == "on"
-    assert (
-        all_sources_unavailable.attributes["device_class"]
-        == BinarySensorDeviceClass.PROBLEM
-    )
+    failover_active = hass.states.get("binary_sensor.unavailable_light_failover_active")
+    assert failover_active is not None
+    assert failover_active.state == "on"
+    assert failover_active.attributes["device_class"] == BinarySensorDeviceClass.PROBLEM
+    assert failover_active.attributes["failover_active"] is True
 
     assert hass.states.get("button.unavailable_light_retry_excluded_sources") is None
     assert hass.services.has_service(DOMAIN, "clear_failures")

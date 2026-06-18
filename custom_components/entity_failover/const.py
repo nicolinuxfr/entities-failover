@@ -35,7 +35,8 @@ ATTR_AVAILABLE_SOURCES: Final = "available_sources"
 ATTR_EXCLUDED_SOURCES: Final = "excluded_sources"
 ATTR_FORWARDED_ENTITY_ID: Final = "forwarded_entity_id"
 ATTR_SOURCE_COUNT: Final = "source_count"
-ATTR_ALL_SOURCES_UNAVAILABLE: Final = "all_sources_unavailable"
+ATTR_FAILOVER_ACTIVE: Final = "failover_active"
+ATTR_PREFERRED_SOURCE: Final = "preferred_source"
 
 SERVICE_CLEAR_FAILURES: Final = "clear_failures"
 

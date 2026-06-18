@@ -451,7 +451,7 @@ async def test_repairs_alert_is_disabled_by_default(hass) -> None:
     await hass.async_block_till_done()
 
     assert manager.active_source is None
-    assert manager.state_attributes["all_sources_unavailable"] is True
+    assert manager.state_attributes["failover_active"] is True
     assert manager.diagnostics().repairs_issue_active is False
     await manager.async_unload()
 
@@ -468,6 +468,44 @@ async def test_repairs_alert_can_be_enabled_with_delay(hass) -> None:
 
     assert manager.active_source is None
     assert manager.diagnostics().repairs_issue_active is True
+    await manager.async_unload()
+
+
+@pytest.mark.asyncio
+async def test_static_priority_failover_active_when_primary_unavailable(hass) -> None:
+    """Failover is active when the preferred static-priority source is down."""
+
+    hass.states.async_set("switch.primary", "unavailable")
+    hass.states.async_set("switch.backup", "off")
+    manager = FailoverManager(hass, _config())
+    await manager.async_start()
+
+    assert manager.preferred_source == "switch.primary"
+    assert manager.active_source == "switch.backup"
+    assert manager.failover_active
+    assert manager.state_attributes["failover_active"] is True
+    await manager.async_unload()
+
+
+@pytest.mark.asyncio
+async def test_latency_failover_active_when_fastest_source_unavailable(hass) -> None:
+    """Failover is active when the measured fastest source is down."""
+
+    hass.states.async_set("switch.primary", "unavailable")
+    hass.states.async_set("switch.backup", "off")
+    manager = FailoverManager(
+        hass,
+        _config(selection_policy=SelectionPolicy.LOWEST_LATENCY),
+    )
+
+    manager._health["switch.primary"].latencies = [0.1]
+    manager._health["switch.backup"].latencies = [1.0]
+    await manager.async_start()
+
+    assert manager.preferred_source == "switch.primary"
+    assert manager.active_source == "switch.backup"
+    assert manager.failover_active
+    assert manager.state_attributes["preferred_source"] == "switch.primary"
     await manager.async_unload()
 
 

@@ -1,9 +1,8 @@
 """Entity classes for Entity Failover."""
 
 from .diagnostics import (
+    FailoverActiveBinarySensor,
     FailoverActiveSourceSensor,
-    FailoverAllSourcesUnavailableBinarySensor,
-    FailoverPrimarySourceInactiveBinarySensor,
 )
 from .domains import (
     FailoverGenericMainEntity,
@@ -13,11 +12,10 @@ from .domains import (
 )
 
 __all__ = [
+    "FailoverActiveBinarySensor",
     "FailoverActiveSourceSensor",
-    "FailoverAllSourcesUnavailableBinarySensor",
     "FailoverGenericMainEntity",
     "FailoverLightEntity",
     "FailoverNumberEntity",
-    "FailoverPrimarySourceInactiveBinarySensor",
     "main_entity_for_manager",
 ]

@@ -129,16 +129,13 @@
   },
   "entity": {
     "binary_sensor": {
-      "primary_source_inactive": {
-        "name": "Primary source inactive"
-      },
-      "all_sources_unavailable": {
-        "name": "All sources unavailable"
+      "failover_active": {
+        "name": "Failover active"
       }
     },
     "sensor": {
-      "active_source": {
-        "name": "Active source"
+      "source": {
+        "name": "Source"
       }
     }
   },

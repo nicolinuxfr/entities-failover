@@ -39,6 +39,15 @@ When adding a domain:
 
 ## Versioning
 
+## Pre-Public Rename Policy
+
+Until the first public release is published, internal entity suffixes,
+translation keys, and diagnostic attribute names may be renamed when it makes
+the integration cleaner. Prefer the final public shape over backward
+compatibility during this phase. After the first public release, treat these
+names as user-facing compatibility surfaces and add migrations or aliases
+instead of breaking them.
+
 Keep these versions synchronized for releases:
 
 - `custom_components/entity_failover/manifest.json` key `version`
