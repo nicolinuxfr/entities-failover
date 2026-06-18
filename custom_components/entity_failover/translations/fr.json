@@ -1,7 +1,8 @@
 {
   "config": {
     "abort": {
-      "already_configured": "Entity Failover est déjà configuré. Ajoutez de nouvelles entités depuis la page de l'intégration."
+      "already_configured": "Entity Failover est déjà configuré. Ajoutez de nouvelles entités depuis la page de l'intégration.",
+      "reconfigure_successful": "L'entité de secours a été modifiée avec succès."
     },
     "step": {
       "user": {
@@ -47,6 +48,20 @@
       "initiate_flow": {
         "reconfigure": "Modifier l'entité de secours",
         "user": "Ajouter une entité de secours"
+      },
+      "abort": {
+        "reconfigure_successful": "L'entité de secours a été modifiée avec succès."
+      },
+      "error": {
+        "too_few_sources": "Sélectionnez au moins deux entités sources.",
+        "unsupported_domain": "Ce domaine n'est pas pris en charge.",
+        "duplicate_sources": "Une source ne peut pas être sélectionnée plusieurs fois.",
+        "mixed_domains": "Toutes les sources doivent appartenir au domaine sélectionné.",
+        "self_reference": "L'entité de secours ne peut pas s'utiliser elle-même comme source.",
+        "circular_dependency": "Cet ordre de sources créerait une dépendance circulaire.",
+        "incompatible_device_class": "Les sources sélectionnées ont des classes d'appareil incompatibles.",
+        "incompatible_state_class": "Les sources sélectionnées ont des classes d'état incompatibles.",
+        "incompatible_unit_of_measurement": "Les sources sélectionnées ont des unités incompatibles."
       },
       "step": {
         "user": {

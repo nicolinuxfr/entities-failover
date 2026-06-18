@@ -1,7 +1,8 @@
 {
   "config": {
     "abort": {
-      "already_configured": "Entity Failover is already configured. Add new failover entities from the integration page."
+      "already_configured": "Entity Failover is already configured. Add new failover entities from the integration page.",
+      "reconfigure_successful": "Failover entity updated successfully."
     },
     "step": {
       "user": {
@@ -47,6 +48,20 @@
       "initiate_flow": {
         "reconfigure": "Update failover entity",
         "user": "Add failover entity"
+      },
+      "abort": {
+        "reconfigure_successful": "Failover entity updated successfully."
+      },
+      "error": {
+        "too_few_sources": "Select at least two source entities.",
+        "unsupported_domain": "This domain is not supported.",
+        "duplicate_sources": "The same source cannot be selected more than once.",
+        "mixed_domains": "All sources must belong to the selected domain.",
+        "self_reference": "The failover entity cannot use itself as a source.",
+        "circular_dependency": "This source order would create a circular dependency.",
+        "incompatible_device_class": "The selected sources have incompatible device classes.",
+        "incompatible_state_class": "The selected sources have incompatible state classes.",
+        "incompatible_unit_of_measurement": "The selected sources have incompatible units."
       },
       "step": {
         "user": {
