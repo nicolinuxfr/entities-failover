@@ -29,6 +29,23 @@
           "command_validation": "Détermine quand une commande est considérée comme réussie et quand essayer une autre source.",
           "confirmation_timeout": "Utilisé seulement avec la confirmation par l'état.",
           "repairs_delay": "Réglez sur 0 pour conserver seulement l'état indisponible sans créer d'alerte Repairs."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Comportement avancé",
+            "data": {
+              "feature_policy": "Fonctions exposées par l'entité",
+              "command_validation": "Vérification des commandes",
+              "confirmation_timeout": "Délai maximal de confirmation",
+              "repairs_delay": "Délai avant affichage d'une alerte Repairs"
+            },
+            "data_description": {
+              "feature_policy": "Choisissez si l'entité annonce uniquement les fonctions communes à toutes les sources ou celles de la source active.",
+              "command_validation": "Détermine quand une commande est considérée comme réussie et quand essayer une autre source.",
+              "confirmation_timeout": "Utilisé seulement avec la confirmation par l'état.",
+              "repairs_delay": "Réglez sur 0 pour conserver seulement l'état indisponible sans créer d'alerte Repairs."
+            }
+          }
         }
       }
     },
@@ -90,6 +107,23 @@
             "command_validation": "Détermine quand une commande est considérée comme réussie et quand essayer une autre source.",
             "confirmation_timeout": "Utilisé seulement avec la confirmation par l'état.",
             "repairs_delay": "Réglez sur 0 pour conserver seulement l'état indisponible sans créer d'alerte Repairs."
+          },
+          "sections": {
+            "advanced": {
+              "name": "Comportement avancé",
+              "data": {
+                "feature_policy": "Fonctions exposées par l'entité",
+                "command_validation": "Vérification des commandes",
+                "confirmation_timeout": "Délai maximal de confirmation",
+                "repairs_delay": "Délai avant affichage d'une alerte Repairs"
+              },
+              "data_description": {
+                "feature_policy": "Choisissez si l'entité annonce uniquement les fonctions communes à toutes les sources ou celles de la source active.",
+                "command_validation": "Détermine quand une commande est considérée comme réussie et quand essayer une autre source.",
+                "confirmation_timeout": "Utilisé seulement avec la confirmation par l'état.",
+                "repairs_delay": "Réglez sur 0 pour conserver seulement l'état indisponible sans créer d'alerte Repairs."
+              }
+            }
           }
         },
         "reconfigure": {
@@ -116,6 +150,23 @@
             "command_validation": "Détermine quand une commande est considérée comme réussie et quand essayer une autre source.",
             "confirmation_timeout": "Utilisé seulement avec la confirmation par l'état.",
             "repairs_delay": "Réglez sur 0 pour conserver seulement l'état indisponible sans créer d'alerte Repairs."
+          },
+          "sections": {
+            "advanced": {
+              "name": "Comportement avancé",
+              "data": {
+                "feature_policy": "Fonctions exposées par l'entité",
+                "command_validation": "Vérification des commandes",
+                "confirmation_timeout": "Délai maximal de confirmation",
+                "repairs_delay": "Délai avant affichage d'une alerte Repairs"
+              },
+              "data_description": {
+                "feature_policy": "Choisissez si l'entité annonce uniquement les fonctions communes à toutes les sources ou celles de la source active.",
+                "command_validation": "Détermine quand une commande est considérée comme réussie et quand essayer une autre source.",
+                "confirmation_timeout": "Utilisé seulement avec la confirmation par l'état.",
+                "repairs_delay": "Réglez sur 0 pour conserver seulement l'état indisponible sans créer d'alerte Repairs."
+              }
+            }
           }
         }
       }

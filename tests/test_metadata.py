@@ -10,9 +10,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "custom_components" / "entity_failover" / "manifest.json"
 BRAND = ROOT / "custom_components" / "entity_failover" / "brand"
+TRANSLATIONS = ROOT / "custom_components" / "entity_failover" / "translations"
 HACS = ROOT / "hacs.json"
 PYPROJECT = ROOT / "pyproject.toml"
 REPOSITORY_URL = "https://github.com/nicolinuxfr/entities-failover"
+ADVANCED_FIELDS = {
+    "feature_policy",
+    "command_validation",
+    "confirmation_timeout",
+    "repairs_delay",
+}
 
 
 def test_manifest_has_hacs_required_keys() -> None:
@@ -52,6 +59,26 @@ def test_hacs_min_homeassistant_matches_test_dependency() -> None:
     test_dependencies = pyproject["project"]["optional-dependencies"]["test"]
 
     assert f"homeassistant>={hacs['homeassistant']}" in test_dependencies
+
+
+def test_advanced_flow_sections_are_translated() -> None:
+    """Fields inside data_entry_flow sections need section-scoped translations."""
+
+    for language in ("en", "fr"):
+        translations = json.loads(
+            (TRANSLATIONS / f"{language}.json").read_text(encoding="utf-8")
+        )
+        steps = [
+            translations["config"]["step"]["user"],
+            translations["config_subentries"]["failover"]["step"]["user"],
+            translations["config_subentries"]["failover"]["step"]["reconfigure"],
+        ]
+
+        for step in steps:
+            advanced = step["sections"]["advanced"]
+            assert advanced["name"]
+            assert set(advanced["data"]) == ADVANCED_FIELDS
+            assert set(advanced["data_description"]) == ADVANCED_FIELDS
 
 
 def test_single_hacs_integration_directory() -> None:

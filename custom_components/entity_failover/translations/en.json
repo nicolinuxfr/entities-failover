@@ -29,6 +29,23 @@
           "command_validation": "Determines when a command counts as successful and when another source should be tried.",
           "confirmation_timeout": "Used only with state confirmation.",
           "repairs_delay": "Set to 0 to keep the unavailable state only and never create a Repairs alert."
+        },
+        "sections": {
+          "advanced": {
+            "name": "Advanced behavior",
+            "data": {
+              "feature_policy": "Features exposed by the entity",
+              "command_validation": "Command verification",
+              "confirmation_timeout": "Maximum confirmation delay",
+              "repairs_delay": "Delay before showing a Repairs alert"
+            },
+            "data_description": {
+              "feature_policy": "Choose whether the entity exposes only features shared by every source, or features from the active source.",
+              "command_validation": "Determines when a command counts as successful and when another source should be tried.",
+              "confirmation_timeout": "Used only with state confirmation.",
+              "repairs_delay": "Set to 0 to keep the unavailable state only and never create a Repairs alert."
+            }
+          }
         }
       }
     },
@@ -90,6 +107,23 @@
             "command_validation": "Determines when a command counts as successful and when another source should be tried.",
             "confirmation_timeout": "Used only with state confirmation.",
             "repairs_delay": "Set to 0 to keep the unavailable state only and never create a Repairs alert."
+          },
+          "sections": {
+            "advanced": {
+              "name": "Advanced behavior",
+              "data": {
+                "feature_policy": "Features exposed by the entity",
+                "command_validation": "Command verification",
+                "confirmation_timeout": "Maximum confirmation delay",
+                "repairs_delay": "Delay before showing a Repairs alert"
+              },
+              "data_description": {
+                "feature_policy": "Choose whether the entity exposes only features shared by every source, or features from the active source.",
+                "command_validation": "Determines when a command counts as successful and when another source should be tried.",
+                "confirmation_timeout": "Used only with state confirmation.",
+                "repairs_delay": "Set to 0 to keep the unavailable state only and never create a Repairs alert."
+              }
+            }
           }
         },
         "reconfigure": {
@@ -116,6 +150,23 @@
             "command_validation": "Determines when a command counts as successful and when another source should be tried.",
             "confirmation_timeout": "Used only with state confirmation.",
             "repairs_delay": "Set to 0 to keep the unavailable state only and never create a Repairs alert."
+          },
+          "sections": {
+            "advanced": {
+              "name": "Advanced behavior",
+              "data": {
+                "feature_policy": "Features exposed by the entity",
+                "command_validation": "Command verification",
+                "confirmation_timeout": "Maximum confirmation delay",
+                "repairs_delay": "Delay before showing a Repairs alert"
+              },
+              "data_description": {
+                "feature_policy": "Choose whether the entity exposes only features shared by every source, or features from the active source.",
+                "command_validation": "Determines when a command counts as successful and when another source should be tried.",
+                "confirmation_timeout": "Used only with state confirmation.",
+                "repairs_delay": "Set to 0 to keep the unavailable state only and never create a Repairs alert."
+              }
+            }
           }
         }
       }
