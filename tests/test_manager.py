@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import timedelta
 
@@ -32,6 +33,15 @@ def _config(**overrides):
     }
     data.update(overrides)
     return FailoverConfig(**data)
+
+
+async def _finish_confirmation(hass, task: asyncio.Task[None], seconds: float) -> None:
+    """Advance Home Assistant time until a pending confirmation can finish."""
+
+    await hass.async_block_till_done()
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=seconds + 1))
+    await hass.async_block_till_done()
+    await task
 
 
 @pytest.mark.asyncio
@@ -178,7 +188,8 @@ async def test_state_confirmation_accepts_any_configured_source(hass) -> None:
     )
     await manager.async_start()
 
-    await manager.async_call_service("turn_on")
+    task = asyncio.create_task(manager.async_call_service("turn_on"))
+    await _finish_confirmation(hass, task, manager.config.confirmation_timeout)
 
     assert calls == ["switch.primary"]
     assert manager.active_source == "switch.primary"
@@ -204,10 +215,57 @@ async def test_state_confirmation_success(hass) -> None:
     )
     await manager.async_start()
 
-    await manager.async_call_service("turn_on")
+    task = asyncio.create_task(manager.async_call_service("turn_on"))
+    await _finish_confirmation(hass, task, manager.config.confirmation_timeout)
 
     assert manager.last_command_result is not None
     assert manager.last_command_result.success
+    await manager.async_unload()
+
+
+@pytest.mark.asyncio
+async def test_state_confirmation_retries_when_state_does_not_stay_confirmed(
+    hass,
+) -> None:
+    """State confirmation requires the expected state to survive the timeout."""
+
+    calls: list[str] = []
+
+    async def _turn_on(call):
+        entity_id = call.data["entity_id"]
+        calls.append(entity_id)
+        hass.states.async_set(entity_id, "on")
+
+    hass.services.async_register("switch", "turn_on", _turn_on)
+    hass.states.async_set("switch.primary", "off")
+    hass.states.async_set("switch.backup", "off")
+    manager = FailoverManager(
+        hass,
+        _config(
+            command_validation=CommandValidation.STATE_CONFIRMATION,
+            confirmation_timeout=5,
+        ),
+    )
+    await manager.async_start()
+
+    task = asyncio.create_task(manager.async_call_service("turn_on"))
+    await hass.async_block_till_done()
+
+    hass.states.async_set("switch.primary", "off")
+    await hass.async_block_till_done()
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=6))
+    await hass.async_block_till_done()
+
+    assert calls == ["switch.primary", "switch.backup"]
+
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=12))
+    await hass.async_block_till_done()
+    await task
+
+    assert manager.last_command_result is not None
+    assert manager.last_command_result.success
+    assert manager.last_command_result.source == "switch.backup"
+    assert "switch.primary" in manager.excluded_sources
     await manager.async_unload()
 
 
@@ -235,7 +293,8 @@ async def test_number_state_confirmation_uses_entity_state(hass) -> None:
     )
     await manager.async_start()
 
-    await manager.async_call_service("set_value", {"value": 20})
+    task = asyncio.create_task(manager.async_call_service("set_value", {"value": 20}))
+    await _finish_confirmation(hass, task, manager.config.confirmation_timeout)
 
     assert calls == ["number.primary"]
     assert manager.active_source == "number.primary"

@@ -539,10 +539,6 @@ class FailoverManager:
             return True
         if not isinstance(expected, ConfirmationRule):
             return True
-        matched_source = self._source_matching_confirmation(expected, data)
-        if matched_source is not None:
-            self._set_state_source_from_confirmation(source, matched_source)
-            return True
 
         future: asyncio.Future[bool] = self.hass.loop.create_future()
 
@@ -553,8 +549,6 @@ class FailoverManager:
             if self.adapter.confirmation_matches(expected, new_state, data):
                 if isinstance(changed_source, str):
                     self._set_state_source_from_confirmation(source, changed_source)
-                if not future.done():
-                    future.set_result(True)
 
         unsub_state = async_track_state_change_event(
             self.hass, list(self.config.sources), _state_changed
@@ -563,6 +557,11 @@ class FailoverManager:
         @callback
         def _timeout(_now: datetime) -> None:
             if not future.done():
+                matched_source = self._source_matching_confirmation(expected, data)
+                if matched_source is not None:
+                    self._set_state_source_from_confirmation(source, matched_source)
+                    future.set_result(True)
+                    return
                 future.set_result(False)
 
         unsub_timeout = async_call_later(
