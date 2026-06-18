@@ -1,47 +1,46 @@
 """Home Assistant domain contract entity classes."""
 
-from .climate import (
-    FailoverClimateEntity,
-    FailoverHumidifierEntity,
-    FailoverWaterHeaterEntity,
-)
-from .common import FailoverGenericMainEntity, ToggleFailoverEntity
-from .light import FailoverLightEntity
-from .media import FailoverMediaPlayerEntity
-from .position import FailoverCoverEntity, FailoverValveEntity
-from .security import FailoverAlarmControlPanelEntity, FailoverLockEntity
-from .sensor import (
-    FailoverAirQualityEntity,
-    FailoverBinarySensorEntity,
-    FailoverDeviceTrackerEntity,
-    FailoverSensorEntity,
-    FailoverWeatherEntity,
-)
-from .simple import (
-    FailoverButtonEntity,
-    FailoverFanEntity,
-    FailoverRemoteEntity,
-    FailoverSirenEntity,
-    FailoverSwitchEntity,
-)
-from .specialized import (
-    FailoverCalendarEntity,
-    FailoverCameraEntity,
-    FailoverImageEntity,
-    FailoverLawnMowerEntity,
-    FailoverSceneEntity,
-    FailoverTodoListEntity,
-    FailoverUpdateEntity,
-    FailoverVacuumEntity,
-)
-from .value import (
-    FailoverDateEntity,
-    FailoverDateTimeEntity,
-    FailoverNumberEntity,
-    FailoverSelectEntity,
-    FailoverTextEntity,
-    FailoverTimeEntity,
-)
+from __future__ import annotations
+
+from importlib import import_module
+
+_CLASS_MODULES = {
+    "FailoverAirQualityEntity": "sensor",
+    "FailoverAlarmControlPanelEntity": "security",
+    "FailoverBinarySensorEntity": "sensor",
+    "FailoverButtonEntity": "simple",
+    "FailoverCalendarEntity": "specialized",
+    "FailoverCameraEntity": "camera",
+    "FailoverClimateEntity": "climate",
+    "FailoverCoverEntity": "position",
+    "FailoverDateEntity": "value",
+    "FailoverDateTimeEntity": "value",
+    "FailoverDeviceTrackerEntity": "sensor",
+    "FailoverFanEntity": "simple",
+    "FailoverGenericMainEntity": "common",
+    "FailoverHumidifierEntity": "climate",
+    "FailoverImageEntity": "specialized",
+    "FailoverLawnMowerEntity": "specialized",
+    "FailoverLightEntity": "light",
+    "FailoverLockEntity": "security",
+    "FailoverMediaPlayerEntity": "media",
+    "FailoverNumberEntity": "value",
+    "FailoverRemoteEntity": "simple",
+    "FailoverSceneEntity": "specialized",
+    "FailoverSelectEntity": "value",
+    "FailoverSensorEntity": "sensor",
+    "FailoverSirenEntity": "simple",
+    "FailoverSwitchEntity": "simple",
+    "FailoverTextEntity": "value",
+    "FailoverTimeEntity": "value",
+    "FailoverTodoListEntity": "specialized",
+    "FailoverUpdateEntity": "specialized",
+    "FailoverVacuumEntity": "specialized",
+    "FailoverValveEntity": "position",
+    "FailoverWaterHeaterEntity": "climate",
+    "FailoverWeatherEntity": "sensor",
+    "ToggleFailoverEntity": "common",
+}
 
 __all__ = [
     "FailoverAirQualityEntity",
@@ -80,3 +79,14 @@ __all__ = [
     "FailoverWeatherEntity",
     "ToggleFailoverEntity",
 ]
+
+
+def __getattr__(name: str) -> object:
+    """Resolve domain contract classes without importing every HA platform."""
+
+    if name not in _CLASS_MODULES:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = import_module(f".{_CLASS_MODULES[name]}", package=__name__)
+    value = getattr(module, name)
+    globals()[name] = value
+    return value

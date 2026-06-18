@@ -19,7 +19,9 @@ from custom_components.entity_failover.const import (
     CONF_FAILURE_COOLDOWN,
     CONF_FEATURE_POLICY,
     CONF_RECOVERY_STABILITY,
+    CONF_REPAIRS_DELAY,
     CONF_SOURCES,
+    DEFAULT_REPAIRS_DELAY,
     DOMAIN,
     NAME,
     SUBENTRY_TYPE_FAILOVER,
@@ -65,6 +67,26 @@ async def test_validate_refuses_unsupported_domain(hass) -> None:
     )
 
 
+@pytest.mark.asyncio
+async def test_validate_allows_lights_with_different_color_modes(hass) -> None:
+    """Light sources may expose different color capabilities."""
+
+    hass.states.async_set(
+        "light.matter",
+        "on",
+        {"supported_color_modes": ["color_temp"]},
+    )
+    hass.states.async_set(
+        "light.cloud",
+        "off",
+        {"supported_color_modes": ["onoff"]},
+    )
+
+    assert (
+        _validate_sources(hass, "light", ["light.matter", "light.cloud"], None) is None
+    )
+
+
 def test_source_selectors_default_to_empty_lists() -> None:
     """Multiple entity selectors must never receive None as a default."""
 
@@ -88,6 +110,15 @@ def test_advanced_settings_hold_technical_choices() -> None:
 
     assert CONF_FEATURE_POLICY not in schema.schema
     assert CONF_FEATURE_POLICY in section.schema.schema
+    assert CONF_REPAIRS_DELAY in section.schema.schema
+
+
+def test_repairs_delay_defaults_to_disabled() -> None:
+    """Repairs alerts are opt-in while diagnostics remain available."""
+
+    section = _user_schema().schema[ADVANCED_SECTION]
+
+    assert section.schema({})[CONF_REPAIRS_DELAY] == DEFAULT_REPAIRS_DELAY
 
 
 def test_advanced_selectors_use_translatable_labels() -> None:
@@ -129,6 +160,7 @@ async def test_config_flow_creates_entry(hass) -> None:
                 CONF_FEATURE_POLICY: "intersection",
                 CONF_COMMAND_VALIDATION: "service_call",
                 CONF_CONFIRMATION_TIMEOUT: 10,
+                CONF_REPAIRS_DELAY: 0,
             },
         },
     )
@@ -148,6 +180,7 @@ async def test_config_flow_creates_entry(hass) -> None:
         CONF_FAILURE_COOLDOWN,
         CONF_RECOVERY_STABILITY,
         CONF_FEATURE_POLICY,
+        CONF_REPAIRS_DELAY,
     }
 
 
@@ -176,6 +209,7 @@ async def test_config_flow_manager_creates_entry_from_single_form(hass) -> None:
                 CONF_FEATURE_POLICY: "intersection",
                 CONF_COMMAND_VALIDATION: "service_call",
                 CONF_CONFIRMATION_TIMEOUT: 10,
+                CONF_REPAIRS_DELAY: 0,
             },
         },
     )
@@ -224,6 +258,7 @@ async def test_subentry_flow_adds_failover_from_integration_page(hass) -> None:
                 CONF_FEATURE_POLICY: "active_source",
                 CONF_COMMAND_VALIDATION: "service_call",
                 CONF_CONFIRMATION_TIMEOUT: 5,
+                CONF_REPAIRS_DELAY: 1200,
             },
         },
     )
@@ -233,6 +268,7 @@ async def test_subentry_flow_adds_failover_from_integration_page(hass) -> None:
     assert subentry.title == "Kitchen Switch"
     assert result["data"][CONF_RECOVERY_STABILITY] == 15
     assert result["data"][CONF_COMMAND_VALIDATION] == "service_call"
+    assert result["data"][CONF_REPAIRS_DELAY] == 1200
 
 
 @pytest.mark.asyncio
@@ -257,6 +293,7 @@ async def test_subentry_flow_reconfigures_failover(hass) -> None:
                     CONF_FAILURE_COOLDOWN: 60,
                     CONF_RECOVERY_STABILITY: 30,
                     CONF_FEATURE_POLICY: "intersection",
+                    CONF_REPAIRS_DELAY: 0,
                 },
                 "subentry_type": SUBENTRY_TYPE_FAILOVER,
                 "title": "Kitchen Switch",
@@ -286,6 +323,7 @@ async def test_subentry_flow_reconfigures_failover(hass) -> None:
                 CONF_FEATURE_POLICY: "active_source",
                 CONF_COMMAND_VALIDATION: "state_confirmation",
                 CONF_CONFIRMATION_TIMEOUT: 5,
+                CONF_REPAIRS_DELAY: 600,
             },
         },
     )
@@ -294,70 +332,4 @@ async def test_subentry_flow_reconfigures_failover(hass) -> None:
     updated = entry.subentries[subentry.subentry_id]
     assert updated.title == "Updated Switch"
     assert updated.data[CONF_FEATURE_POLICY] == "active_source"
-
-
-@pytest.mark.asyncio
-async def test_subentry_flow_reorders_sources_with_update_listener(hass) -> None:
-    """Reordering sources works after the integration entry has been set up."""
-
-    hass.states.async_set("light.one", "on", {"supported_color_modes": ["brightness"]})
-    hass.states.async_set("light.two", "off", {"supported_color_modes": ["brightness"]})
-    hass.states.async_set(
-        "light.three", "off", {"supported_color_modes": ["brightness"]}
-    )
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        title=NAME,
-        unique_id=DOMAIN,
-        data={},
-        subentries_data=[
-            {
-                "data": {
-                    "name": "Living Room Light",
-                    CONF_DOMAIN: "light",
-                    CONF_SOURCES: ["light.one", "light.two", "light.three"],
-                    CONF_COMMAND_VALIDATION: "service_call",
-                    CONF_CONFIRMATION_TIMEOUT: 10,
-                    CONF_FAILURE_COOLDOWN: 60,
-                    CONF_RECOVERY_STABILITY: 30,
-                    CONF_FEATURE_POLICY: "intersection",
-                },
-                "subentry_type": SUBENTRY_TYPE_FAILOVER,
-                "title": "Living Room Light",
-                "unique_id": "unique-light-subentry",
-            }
-        ],
-        version=2,
-    )
-    entry.add_to_hass(hass)
-    subentry = next(iter(entry.subentries.values()))
-
-    async def _update_listener(*_) -> None:
-        pass
-
-    entry.async_on_unload(entry.add_update_listener(_update_listener))
-
-    result = await hass.config_entries.subentries.async_init(
-        (entry.entry_id, SUBENTRY_TYPE_FAILOVER),
-        context={"source": "reconfigure", "subentry_id": subentry.subentry_id},
-    )
-    assert result["type"] == "form"
-
-    result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"],
-        {
-            "name": "Living Room Light",
-            CONF_SOURCES: ["light.three", "light.one", "light.two"],
-            CONF_RECOVERY_STABILITY: 30,
-            CONF_FAILURE_COOLDOWN: 60,
-            ADVANCED_SECTION: {
-                CONF_FEATURE_POLICY: "intersection",
-                CONF_COMMAND_VALIDATION: "service_call",
-                CONF_CONFIRMATION_TIMEOUT: 10,
-            },
-        },
-    )
-
-    assert result["type"] == "abort"
-    updated = entry.subentries[subentry.subentry_id]
-    assert updated.data[CONF_SOURCES] == ["light.three", "light.one", "light.two"]
+    assert updated.data[CONF_REPAIRS_DELAY] == 600

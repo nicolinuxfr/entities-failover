@@ -15,7 +15,8 @@
           "feature_policy": "Fonctions exposées par l'entité",
           "advanced": "Comportement avancé",
           "command_validation": "Vérification des commandes",
-          "confirmation_timeout": "Délai maximal de confirmation"
+          "confirmation_timeout": "Délai maximal de confirmation",
+          "repairs_delay": "Délai avant affichage d'une alerte Repairs"
         },
         "data_description": {
           "sources": "La première source disponible est utilisée. Si elle échoue, Entity Failover passe à la suivante.",
@@ -23,7 +24,8 @@
           "failure_cooldown": "Après une erreur de commande, la source est ignorée pendant cette durée.",
           "feature_policy": "Choisissez si l'entité annonce uniquement les fonctions communes à toutes les sources ou celles de la source active.",
           "command_validation": "Détermine quand une commande est considérée comme réussie et quand essayer une autre source.",
-          "confirmation_timeout": "Utilisé seulement avec la confirmation par l'état."
+          "confirmation_timeout": "Utilisé seulement avec la confirmation par l'état.",
+          "repairs_delay": "Réglez sur 0 pour conserver seulement l'état indisponible sans créer d'alerte Repairs."
         }
       }
     },
@@ -58,7 +60,8 @@
             "feature_policy": "Fonctions exposées par l'entité",
             "advanced": "Comportement avancé",
             "command_validation": "Vérification des commandes",
-            "confirmation_timeout": "Délai maximal de confirmation"
+            "confirmation_timeout": "Délai maximal de confirmation",
+            "repairs_delay": "Délai avant affichage d'une alerte Repairs"
           },
           "data_description": {
             "sources": "La première source disponible est utilisée. Si elle échoue, Entity Failover passe à la suivante.",
@@ -66,7 +69,8 @@
             "failure_cooldown": "Après une erreur de commande, la source est ignorée pendant cette durée.",
             "feature_policy": "Choisissez si l'entité annonce uniquement les fonctions communes à toutes les sources ou celles de la source active.",
             "command_validation": "Détermine quand une commande est considérée comme réussie et quand essayer une autre source.",
-            "confirmation_timeout": "Utilisé seulement avec la confirmation par l'état."
+            "confirmation_timeout": "Utilisé seulement avec la confirmation par l'état.",
+            "repairs_delay": "Réglez sur 0 pour conserver seulement l'état indisponible sans créer d'alerte Repairs."
           }
         },
         "reconfigure": {
@@ -80,7 +84,8 @@
             "feature_policy": "Fonctions exposées par l'entité",
             "advanced": "Comportement avancé",
             "command_validation": "Vérification des commandes",
-            "confirmation_timeout": "Délai maximal de confirmation"
+            "confirmation_timeout": "Délai maximal de confirmation",
+            "repairs_delay": "Délai avant affichage d'une alerte Repairs"
           },
           "data_description": {
             "sources": "La première source disponible est utilisée. Si elle échoue, Entity Failover passe à la suivante.",
@@ -88,7 +93,8 @@
             "failure_cooldown": "Après une erreur de commande, la source est ignorée pendant cette durée.",
             "feature_policy": "Choisissez si l'entité annonce uniquement les fonctions communes à toutes les sources ou celles de la source active.",
             "command_validation": "Détermine quand une commande est considérée comme réussie et quand essayer une autre source.",
-            "confirmation_timeout": "Utilisé seulement avec la confirmation par l'état."
+            "confirmation_timeout": "Utilisé seulement avec la confirmation par l'état.",
+            "repairs_delay": "Réglez sur 0 pour conserver seulement l'état indisponible sans créer d'alerte Repairs."
           }
         }
       }
@@ -100,10 +106,25 @@
       "description": "Toutes les entités sources configurées sont indisponibles ou exclues : {sources}."
     }
   },
+  "entity": {
+    "binary_sensor": {
+      "primary_source_inactive": {
+        "name": "Source principale inactive"
+      },
+      "all_sources_unavailable": {
+        "name": "Toutes les sources indisponibles"
+      }
+    },
+    "sensor": {
+      "active_source": {
+        "name": "Source active"
+      }
+    }
+  },
   "services": {
     "clear_failures": {
-      "name": "Effacer les échecs",
-      "description": "Efface les exclusions temporaires et recalcule immédiatement la source active.",
+      "name": "Réactiver les sources exclues",
+      "description": "Réactive les sources temporairement exclues et recalcule immédiatement la source active.",
       "fields": {
         "entry_id": {
           "name": "ID de config entry"

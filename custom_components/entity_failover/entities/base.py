@@ -31,7 +31,10 @@ class FailoverEntityMixin:
             if suffix
             else manager.config.unique_id
         )
-        self._attr_name = suffix.replace("_", " ").title() if suffix else None
+        if suffix is None:
+            self._attr_name = None
+        elif not getattr(self, "_attr_translation_key", None):
+            self._attr_name = suffix.replace("_", " ").title()
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, manager.config.unique_id)},
             name=manager.config.name,

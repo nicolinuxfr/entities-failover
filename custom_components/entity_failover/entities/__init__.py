@@ -2,8 +2,8 @@
 
 from .diagnostics import (
     FailoverActiveSourceSensor,
-    FailoverClearFailuresButton,
-    FailoverDegradedBinarySensor,
+    FailoverAllSourcesUnavailableBinarySensor,
+    FailoverPrimarySourceInactiveBinarySensor,
 )
 from .domains import (
     FailoverGenericMainEntity,
@@ -14,10 +14,10 @@ from .domains import (
 
 __all__ = [
     "FailoverActiveSourceSensor",
-    "FailoverClearFailuresButton",
-    "FailoverDegradedBinarySensor",
+    "FailoverAllSourcesUnavailableBinarySensor",
     "FailoverGenericMainEntity",
     "FailoverLightEntity",
     "FailoverNumberEntity",
+    "FailoverPrimarySourceInactiveBinarySensor",
     "main_entity_for_manager",
 ]

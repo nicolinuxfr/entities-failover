@@ -30,13 +30,13 @@ from .adapters import (
 )
 from .const import (
     ATTR_ACTIVE_SOURCE,
+    ATTR_ALL_SOURCES_UNAVAILABLE,
     ATTR_AVAILABLE_SOURCES,
     ATTR_DEGRADED,
     ATTR_EXCLUDED_SOURCES,
     ATTR_PRIORITY_INDEX,
     ATTR_SOURCES_DESYNCHRONIZED,
     ATTR_STATE_SOURCE,
-    DEFAULT_REPAIRS_DELAY,
     DOMAIN,
     ISSUE_ALL_SOURCES_UNAVAILABLE,
 )
@@ -79,6 +79,9 @@ class FailoverManager:
         self._cooldown_unsubs: dict[str, CALLBACK_TYPE] = {}
         self._repairs_issue_active = False
         self._cancel_repairs_timer: CALLBACK_TYPE | None = None
+        self._pending_confirmation_rule: ConfirmationRule | None = None
+        self._pending_confirmation_data: dict[str, Any] = {}
+        self._pending_confirmation_until: datetime | None = None
 
     @property
     def active_state(self) -> State | None:
@@ -159,6 +162,7 @@ class FailoverManager:
             ATTR_SOURCES_DESYNCHRONIZED: self.sources_desynchronized,
             ATTR_PRIORITY_INDEX: self.active_priority_index,
             ATTR_DEGRADED: self.degraded,
+            ATTR_ALL_SOURCES_UNAVAILABLE: self.active_source is None,
             ATTR_AVAILABLE_SOURCES: self.available_sources,
             ATTR_EXCLUDED_SOURCES: self.excluded_sources,
         }
@@ -199,6 +203,9 @@ class FailoverManager:
         if self._cancel_repairs_timer is not None:
             self._cancel_repairs_timer()
             self._cancel_repairs_timer = None
+        if self._repairs_issue_active:
+            ir.async_delete_issue(self.hass, DOMAIN, self._repairs_issue_id)
+            self._repairs_issue_active = False
 
     def async_add_update_listener(self, callback_func: UpdateCallback) -> CALLBACK_TYPE:
         """Register an entity update callback."""
@@ -232,6 +239,7 @@ class FailoverManager:
         self._refresh_health()
         self._select_after_state_change(old_active)
         self._select_state_source_after_state_change(entity_id)
+        self._select_state_source_after_recent_confirmation(entity_id)
         self._handle_repairs_state()
         if self.active_source != old_active:
             self._record_failover(old_active, self.active_source)
@@ -421,12 +429,22 @@ class FailoverManager:
                     source,
                     attempts,
                 )
-                await self._async_call_source(source, service, data, context)
+                await self._async_call_source(
+                    source,
+                    service,
+                    data,
+                    context,
+                    blocking=(
+                        self.config.command_validation
+                        == CommandValidation.STATE_CONFIRMATION
+                    ),
+                )
+                expected = self.adapter.expected_result(service, before, data)
                 if (
                     self.config.command_validation
                     == CommandValidation.STATE_CONFIRMATION
                 ):
-                    if not await self._async_confirm(source, service, before, data):
+                    if not await self._async_confirm(source, expected, data):
                         raise HomeAssistantError(
                             f"{source} did not confirm {self.config.domain}.{service}"
                         )
@@ -437,11 +455,10 @@ class FailoverManager:
                     attempts=attempts,
                     when=dt_util.utcnow(),
                 )
+                self._remember_recent_confirmation(expected, data)
                 self._select_state_source_after_successful_command(
                     source,
-                    service,
-                    before,
-                    data,
+                    expected,
                 )
                 _LOGGER.debug(
                     "Entity Failover %s completed %s.%s on %s (attempt %d)",
@@ -455,6 +472,7 @@ class FailoverManager:
                 return
             except Exception as err:
                 last_error = err
+                self._clear_recent_confirmation()
                 self._exclude_source(source, err)
                 old_active = self.active_source
                 self.active_source = self._best_operational_source()
@@ -480,6 +498,7 @@ class FailoverManager:
             error=str(error),
             when=dt_util.utcnow(),
         )
+        self._clear_recent_confirmation()
         self._notify()
         _LOGGER.error("%s", error)
         raise error
@@ -512,6 +531,8 @@ class FailoverManager:
         service: str,
         data: Mapping[str, Any],
         context: Context | None,
+        *,
+        blocking: bool,
     ) -> None:
         """Call a service on a source entity."""
 
@@ -521,20 +542,18 @@ class FailoverManager:
             self.config.domain,
             service,
             call_data,
-            blocking=True,
+            blocking=blocking,
             context=context,
         )
 
     async def _async_confirm(
         self,
         source: str,
-        service: str,
-        before: State | None,
+        expected: ConfirmationRule | object,
         data: Mapping[str, Any],
     ) -> bool:
         """Confirm a command result if a reliable rule exists."""
 
-        expected = self.adapter.expected_result(service, before, data)
         if expected is CONFIRM_UNSUPPORTED:
             return True
         if not isinstance(expected, ConfirmationRule):
@@ -578,19 +597,70 @@ class FailoverManager:
     def _select_state_source_after_successful_command(
         self,
         command_source: str,
-        service: str,
-        before: State | None,
-        data: Mapping[str, Any],
+        expected: ConfirmationRule | object,
     ) -> None:
         """Select a mirrored state source after a successful service call."""
 
-        expected = self.adapter.expected_result(service, before, data)
         if not isinstance(expected, ConfirmationRule):
             return
-        matched_source = self._source_matching_confirmation(expected, data)
+        matched_source = self._source_matching_confirmation(
+            expected,
+            self._pending_confirmation_data,
+        )
         if matched_source is None:
             return
         self._set_state_source_from_confirmation(command_source, matched_source)
+
+    def _remember_recent_confirmation(
+        self,
+        expected: ConfirmationRule | object,
+        data: Mapping[str, Any],
+    ) -> None:
+        """Remember a successful command briefly for delayed peer state updates."""
+
+        if not isinstance(expected, ConfirmationRule):
+            self._clear_recent_confirmation()
+            return
+        self._pending_confirmation_rule = expected
+        self._pending_confirmation_data = dict(data)
+        self._pending_confirmation_until = dt_util.utcnow() + timedelta(
+            seconds=self.config.confirmation_timeout
+        )
+
+    def _clear_recent_confirmation(self) -> None:
+        """Clear delayed confirmation tracking."""
+
+        self._pending_confirmation_rule = None
+        self._pending_confirmation_data = {}
+        self._pending_confirmation_until = None
+
+    def _select_state_source_after_recent_confirmation(
+        self,
+        changed_source: str,
+    ) -> None:
+        """Use delayed source updates from a recent successful command."""
+
+        rule = self._pending_confirmation_rule
+        if rule is None or self._pending_confirmation_until is None:
+            return
+        if self._pending_confirmation_until <= dt_util.utcnow():
+            self._clear_recent_confirmation()
+            return
+        if not self._is_source_operational(changed_source):
+            return
+        state = self.hass.states.get(changed_source)
+        if not self.adapter.confirmation_matches(
+            rule,
+            state,
+            self._pending_confirmation_data,
+        ):
+            if changed_source == self.active_source:
+                self._clear_recent_confirmation()
+            return
+        command_source = self.active_source or changed_source
+        self._set_state_source_from_confirmation(command_source, changed_source)
+        if changed_source == self.active_source:
+            self._clear_recent_confirmation()
 
     def _source_matching_confirmation(
         self,
@@ -632,6 +702,7 @@ class FailoverManager:
             return
         if not self._is_source_operational(self.state_source):
             self.state_source = None
+            self._clear_recent_confirmation()
             return
         if changed_source != self.active_source:
             return
@@ -648,6 +719,7 @@ class FailoverManager:
                 self.active_source,
             )
             self.state_source = None
+            self._clear_recent_confirmation()
 
     def _exclude_source(self, source: str, err: Exception) -> None:
         """Temporarily exclude a failed source."""
@@ -698,6 +770,11 @@ class FailoverManager:
         if self._repairs_issue_active or self._cancel_repairs_timer is not None:
             return
 
+        if self.config.repairs_delay <= 0:
+            ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+            self._repairs_issue_active = False
+            return
+
         @callback
         def _create_issue(_now: datetime) -> None:
             self._cancel_repairs_timer = None
@@ -724,7 +801,7 @@ class FailoverManager:
 
         self._cancel_repairs_timer = async_call_later(
             self.hass,
-            DEFAULT_REPAIRS_DELAY,
+            self.config.repairs_delay,
             _create_issue,
         )
 

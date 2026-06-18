@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from importlib import import_module
+from importlib.util import find_spec
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -14,7 +16,6 @@ from homeassistant.components.alarm_control_panel import AlarmControlPanelEntity
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.components.button import ButtonEntity
 from homeassistant.components.calendar import CalendarEntity
-from homeassistant.components.camera import Camera
 from homeassistant.components.climate import ClimateEntity, ClimateEntityFeature
 from homeassistant.components.cover import CoverEntity
 from homeassistant.components.date import DateEntity
@@ -98,7 +99,6 @@ EXPECTED_NATIVE_ENTITY_CLASSES = {
     "binary_sensor": BinarySensorEntity,
     "button": ButtonEntity,
     "calendar": CalendarEntity,
-    "camera": Camera,
     "climate": ClimateEntity,
     "cover": CoverEntity,
     "date": DateEntity,
@@ -127,6 +127,25 @@ EXPECTED_NATIVE_ENTITY_CLASSES = {
     "water_heater": WaterHeaterEntity,
     "weather": WeatherEntity,
 }
+
+
+def _expected_native_entity_class(domain: str) -> type[object]:
+    """Return the native HA entity class for a domain."""
+
+    _skip_missing_domain_dependencies(domain)
+    if domain == "camera":
+        return import_module("homeassistant.components.camera").Camera
+    return EXPECTED_NATIVE_ENTITY_CLASSES[domain]
+
+
+def _skip_missing_domain_dependencies(domain: str) -> None:
+    """Skip tests for HA platforms whose optional dependencies are absent."""
+
+    if domain == "camera":
+        pytest.importorskip(
+            "turbojpeg",
+            reason="Home Assistant camera support requires turbojpeg",
+        )
 
 
 def _entry_for_domain(domain: str, attrs: dict[str, object]) -> MockConfigEntry:
@@ -234,9 +253,11 @@ def test_every_supported_domain_has_native_entity() -> None:
 
     assert sorted(DOMAIN_ENTITY_CLASSES) == SUPPORTED_DOMAINS
     for domain in SUPPORTED_DOMAINS:
+        if domain == "camera" and find_spec("turbojpeg") is None:
+            continue
         entity_cls = DOMAIN_ENTITY_CLASSES[domain]
         assert entity_cls is not FailoverGenericMainEntity
-        assert issubclass(entity_cls, EXPECTED_NATIVE_ENTITY_CLASSES[domain])
+        assert issubclass(entity_cls, _expected_native_entity_class(domain))
 
 
 @pytest.mark.parametrize("domain", COMMANDABLE_DOMAINS)
@@ -244,7 +265,7 @@ def test_commandable_route_methods_override_native_contract(domain: str) -> None
     """Commandable services must be handled by failover route mixins."""
 
     entity_cls = DOMAIN_ENTITY_CLASSES[domain]
-    native_cls = EXPECTED_NATIVE_ENTITY_CLASSES[domain]
+    native_cls = _expected_native_entity_class(domain)
     native_index = entity_cls.mro().index(native_cls)
     failover_route_mro = entity_cls.mro()[:native_index]
 
@@ -268,6 +289,7 @@ def test_limited_domains_are_explicitly_read_only() -> None:
 async def test_supported_domain_can_be_set_up(hass: HomeAssistant, domain: str) -> None:
     """Every advertised domain can create a native failover entity."""
 
+    _skip_missing_domain_dependencies(domain)
     attrs = _source_attrs_for_domain(domain)
     hass.states.async_set(f"{domain}.one", _source_state_for_domain(domain), attrs)
     hass.states.async_set(f"{domain}.two", _source_state_for_domain(domain), attrs)

@@ -74,6 +74,14 @@ Run all checks:
 .venv/bin/python -m pytest
 ```
 
+Do not pass JSON translation files directly to `ruff`; Ruff treats explicit
+JSON paths as Python input. Validate translation JSON with `json.tool` instead:
+
+```bash
+.venv/bin/python -m json.tool custom_components/entity_failover/translations/en.json >/tmp/entity_failover_en.json
+.venv/bin/python -m json.tool custom_components/entity_failover/translations/fr.json >/tmp/entity_failover_fr.json
+```
+
 Format code intentionally:
 
 ```bash

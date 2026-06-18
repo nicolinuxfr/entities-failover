@@ -22,12 +22,14 @@ from .const import (
     CONF_FAILURE_COOLDOWN,
     CONF_FEATURE_POLICY,
     CONF_RECOVERY_STABILITY,
+    CONF_REPAIRS_DELAY,
     CONF_SOURCES,
     DEFAULT_COMMAND_VALIDATION,
     DEFAULT_CONFIRMATION_TIMEOUT,
     DEFAULT_FAILURE_COOLDOWN,
     DEFAULT_FEATURE_POLICY,
     DEFAULT_RECOVERY_STABILITY,
+    DEFAULT_REPAIRS_DELAY,
     DOMAIN,
     FEATURE_POLICIES,
     NAME,
@@ -280,6 +282,18 @@ def _advanced_schema_fields(
                 unit_of_measurement="s",
             )
         ),
+        vol.Required(
+            CONF_REPAIRS_DELAY,
+            default=defaults.get(CONF_REPAIRS_DELAY, DEFAULT_REPAIRS_DELAY),
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=0,
+                max=86400,
+                step=1,
+                mode=selector.NumberSelectorMode.BOX,
+                unit_of_measurement="s",
+            )
+        ),
     }
 
 
@@ -298,6 +312,7 @@ def _advanced_defaults(defaults: Mapping[str, Any] | None) -> dict[str, Any]:
         CONF_CONFIRMATION_TIMEOUT: defaults.get(
             CONF_CONFIRMATION_TIMEOUT, DEFAULT_CONFIRMATION_TIMEOUT
         ),
+        CONF_REPAIRS_DELAY: defaults.get(CONF_REPAIRS_DELAY, DEFAULT_REPAIRS_DELAY),
     }
 
 
@@ -353,6 +368,7 @@ def _failover_data_from_user_input(
             CONF_FEATURE_POLICY,
             user_input.get(CONF_FEATURE_POLICY, DEFAULT_FEATURE_POLICY),
         ),
+        CONF_REPAIRS_DELAY: advanced.get(CONF_REPAIRS_DELAY, DEFAULT_REPAIRS_DELAY),
     }
 
 

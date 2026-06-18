@@ -4,20 +4,18 @@ from __future__ import annotations
 
 from .entities import (
     FailoverActiveSourceSensor,
-    FailoverClearFailuresButton,
-    FailoverDegradedBinarySensor,
     FailoverGenericMainEntity,
     FailoverLightEntity,
     FailoverNumberEntity,
+    FailoverPrimarySourceInactiveBinarySensor,
 )
 from .entities.domains import FailoverGenericMainEntity as FailoverMainEntity
 
 __all__ = [
     "FailoverActiveSourceSensor",
-    "FailoverClearFailuresButton",
-    "FailoverDegradedBinarySensor",
     "FailoverGenericMainEntity",
     "FailoverLightEntity",
     "FailoverMainEntity",
     "FailoverNumberEntity",
+    "FailoverPrimarySourceInactiveBinarySensor",
 ]
