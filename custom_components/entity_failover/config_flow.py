@@ -21,6 +21,7 @@ from .const import (
     CONF_DOMAIN,
     CONF_FAILURE_COOLDOWN,
     CONF_FEATURE_POLICY,
+    CONF_HIDE_SOURCES,
     CONF_RECOVERY_STABILITY,
     CONF_REPAIRS_DELAY,
     CONF_SELECTION_POLICY,
@@ -29,6 +30,7 @@ from .const import (
     DEFAULT_CONFIRMATION_TIMEOUT,
     DEFAULT_FAILURE_COOLDOWN,
     DEFAULT_FEATURE_POLICY,
+    DEFAULT_HIDE_SOURCES,
     DEFAULT_RECOVERY_STABILITY,
     DEFAULT_REPAIRS_DELAY,
     DEFAULT_SELECTION_POLICY,
@@ -252,6 +254,10 @@ def _general_schema_fields(
                 unit_of_measurement="s",
             )
         ),
+        vol.Required(
+            CONF_HIDE_SOURCES,
+            default=defaults.get(CONF_HIDE_SOURCES, DEFAULT_HIDE_SOURCES),
+        ): selector.BooleanSelector(),
     }
 
 
@@ -380,6 +386,7 @@ def _failover_data_from_user_input(
             CONF_FEATURE_POLICY,
             user_input.get(CONF_FEATURE_POLICY, DEFAULT_FEATURE_POLICY),
         ),
+        CONF_HIDE_SOURCES: user_input.get(CONF_HIDE_SOURCES, DEFAULT_HIDE_SOURCES),
         CONF_REPAIRS_DELAY: advanced.get(CONF_REPAIRS_DELAY, DEFAULT_REPAIRS_DELAY),
         CONF_SELECTION_POLICY: user_input.get(
             CONF_SELECTION_POLICY, DEFAULT_SELECTION_POLICY

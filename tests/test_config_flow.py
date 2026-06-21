@@ -18,6 +18,7 @@ from custom_components.entity_failover.const import (
     CONF_DOMAIN,
     CONF_FAILURE_COOLDOWN,
     CONF_FEATURE_POLICY,
+    CONF_HIDE_SOURCES,
     CONF_RECOVERY_STABILITY,
     CONF_REPAIRS_DELAY,
     CONF_SELECTION_POLICY,
@@ -182,6 +183,7 @@ async def test_config_flow_creates_entry(hass) -> None:
         CONF_FAILURE_COOLDOWN,
         CONF_RECOVERY_STABILITY,
         CONF_FEATURE_POLICY,
+        CONF_HIDE_SOURCES,
         CONF_REPAIRS_DELAY,
         CONF_SELECTION_POLICY,
     }
@@ -257,6 +259,7 @@ async def test_subentry_flow_adds_failover_from_integration_page(hass) -> None:
             CONF_SOURCES: ["switch.one", "switch.two"],
             CONF_RECOVERY_STABILITY: 15,
             CONF_FAILURE_COOLDOWN: 45,
+            CONF_HIDE_SOURCES: True,
             ADVANCED_SECTION: {
                 CONF_FEATURE_POLICY: "active_source",
                 CONF_COMMAND_VALIDATION: "service_call",
@@ -270,6 +273,7 @@ async def test_subentry_flow_adds_failover_from_integration_page(hass) -> None:
     subentry = next(iter(entry.subentries.values()))
     assert subentry.title == "Kitchen Switch"
     assert result["data"][CONF_RECOVERY_STABILITY] == 15
+    assert result["data"][CONF_HIDE_SOURCES] is True
     assert result["data"][CONF_COMMAND_VALIDATION] == "service_call"
     assert result["data"][CONF_REPAIRS_DELAY] == 1200
 
@@ -322,6 +326,7 @@ async def test_subentry_flow_reconfigures_failover(hass) -> None:
             CONF_SOURCES: ["switch.one", "switch.two"],
             CONF_RECOVERY_STABILITY: 20,
             CONF_FAILURE_COOLDOWN: 40,
+            CONF_HIDE_SOURCES: True,
             ADVANCED_SECTION: {
                 CONF_FEATURE_POLICY: "active_source",
                 CONF_COMMAND_VALIDATION: "state_confirmation",
@@ -334,6 +339,7 @@ async def test_subentry_flow_reconfigures_failover(hass) -> None:
     assert result["type"] == "abort"
     updated = entry.subentries[subentry.subentry_id]
     assert updated.title == "Updated Switch"
+    assert updated.data[CONF_HIDE_SOURCES] is True
     assert updated.data[CONF_FEATURE_POLICY] == "active_source"
     assert updated.data[CONF_REPAIRS_DELAY] == 600
 

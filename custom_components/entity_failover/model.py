@@ -16,6 +16,7 @@ from .const import (
     CONF_DOMAIN,
     CONF_FAILURE_COOLDOWN,
     CONF_FEATURE_POLICY,
+    CONF_HIDE_SOURCES,
     CONF_RECOVERY_STABILITY,
     CONF_REPAIRS_DELAY,
     CONF_SELECTION_POLICY,
@@ -24,6 +25,7 @@ from .const import (
     DEFAULT_CONFIRMATION_TIMEOUT,
     DEFAULT_FAILURE_COOLDOWN,
     DEFAULT_FEATURE_POLICY,
+    DEFAULT_HIDE_SOURCES,
     DEFAULT_RECOVERY_STABILITY,
     DEFAULT_REPAIRS_DELAY,
     DEFAULT_SELECTION_POLICY,
@@ -65,6 +67,7 @@ class FailoverConfig:
     failure_cooldown: float = DEFAULT_FAILURE_COOLDOWN
     recovery_stability: float = DEFAULT_RECOVERY_STABILITY
     feature_policy: FeaturePolicy = FeaturePolicy.INTERSECTION
+    hide_sources: bool = DEFAULT_HIDE_SOURCES
     repairs_delay: float = DEFAULT_REPAIRS_DELAY
     selection_policy: SelectionPolicy = SelectionPolicy.STATIC_PRIORITY
     subentry_id: str | None = None
@@ -101,6 +104,7 @@ class FailoverConfig:
             feature_policy=FeaturePolicy(
                 data.get(CONF_FEATURE_POLICY, DEFAULT_FEATURE_POLICY)
             ),
+            hide_sources=bool(data.get(CONF_HIDE_SOURCES, DEFAULT_HIDE_SOURCES)),
             repairs_delay=float(data.get(CONF_REPAIRS_DELAY, DEFAULT_REPAIRS_DELAY)),
             selection_policy=SelectionPolicy(
                 data.get(CONF_SELECTION_POLICY, DEFAULT_SELECTION_POLICY)
@@ -122,6 +126,7 @@ class FailoverConfig:
             "failure_cooldown": self.failure_cooldown,
             "recovery_stability": self.recovery_stability,
             "feature_policy": self.feature_policy.value,
+            "hide_sources": self.hide_sources,
             "repairs_delay": self.repairs_delay,
             "selection_policy": self.selection_policy.value,
         }

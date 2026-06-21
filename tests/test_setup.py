@@ -37,6 +37,7 @@ from custom_components.entity_failover.const import (
     CONF_DOMAIN,
     CONF_FAILURE_COOLDOWN,
     CONF_FEATURE_POLICY,
+    CONF_HIDE_SOURCES,
     CONF_RECOVERY_STABILITY,
     CONF_SOURCES,
     DOMAIN,
@@ -86,6 +87,129 @@ async def test_setup_and_unload_entry(hass) -> None:
     assert registry_entry.config_subentry_id == subentry.subentry_id
 
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.asyncio
+async def test_setup_hides_source_entities_when_configured(hass) -> None:
+    """Source entities can be hidden while the failover entity is loaded."""
+
+    registry = er.async_get(hass)
+    registry.async_get_or_create(
+        "switch",
+        "test",
+        "one",
+        suggested_object_id="one",
+    )
+    registry.async_get_or_create(
+        "switch",
+        "test",
+        "two",
+        suggested_object_id="two",
+    )
+    hass.states.async_set("switch.one", "on")
+    hass.states.async_set("switch.two", "off")
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title=NAME,
+        unique_id=DOMAIN,
+        data={},
+        subentries_data=[
+            {
+                "data": {
+                    "name": "Kitchen Switch",
+                    CONF_DOMAIN: "switch",
+                    CONF_SOURCES: ["switch.one", "switch.two"],
+                    CONF_COMMAND_VALIDATION: "service_call",
+                    CONF_CONFIRMATION_TIMEOUT: 10,
+                    CONF_FAILURE_COOLDOWN: 60,
+                    CONF_RECOVERY_STABILITY: 30,
+                    CONF_FEATURE_POLICY: "intersection",
+                    CONF_HIDE_SOURCES: True,
+                },
+                "subentry_type": SUBENTRY_TYPE_FAILOVER,
+                "title": "Kitchen Switch",
+                "unique_id": "unique-hide-sources",
+            }
+        ],
+        version=2,
+    )
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert (
+        registry.async_get("switch.one").hidden_by == er.RegistryEntryHider.INTEGRATION
+    )
+    assert (
+        registry.async_get("switch.two").hidden_by == er.RegistryEntryHider.INTEGRATION
+    )
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+    assert registry.async_get("switch.one").hidden_by is None
+    assert registry.async_get("switch.two").hidden_by is None
+
+
+@pytest.mark.asyncio
+async def test_setup_keeps_user_hidden_sources_hidden(hass) -> None:
+    """User-hidden source entities are not overridden or restored."""
+
+    registry = er.async_get(hass)
+    registry.async_get_or_create(
+        "switch",
+        "test",
+        "one",
+        suggested_object_id="one",
+        hidden_by=er.RegistryEntryHider.USER,
+    )
+    registry.async_get_or_create(
+        "switch",
+        "test",
+        "two",
+        suggested_object_id="two",
+    )
+    hass.states.async_set("switch.one", "on")
+    hass.states.async_set("switch.two", "off")
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title=NAME,
+        unique_id=DOMAIN,
+        data={},
+        subentries_data=[
+            {
+                "data": {
+                    "name": "Kitchen Switch",
+                    CONF_DOMAIN: "switch",
+                    CONF_SOURCES: ["switch.one", "switch.two"],
+                    CONF_COMMAND_VALIDATION: "service_call",
+                    CONF_CONFIRMATION_TIMEOUT: 10,
+                    CONF_FAILURE_COOLDOWN: 60,
+                    CONF_RECOVERY_STABILITY: 30,
+                    CONF_FEATURE_POLICY: "intersection",
+                    CONF_HIDE_SOURCES: True,
+                },
+                "subentry_type": SUBENTRY_TYPE_FAILOVER,
+                "title": "Kitchen Switch",
+                "unique_id": "unique-preserve-user-hidden-source",
+            }
+        ],
+        version=2,
+    )
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert registry.async_get("switch.one").hidden_by == er.RegistryEntryHider.USER
+    assert (
+        registry.async_get("switch.two").hidden_by == er.RegistryEntryHider.INTEGRATION
+    )
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+    assert registry.async_get("switch.one").hidden_by == er.RegistryEntryHider.USER
+    assert registry.async_get("switch.two").hidden_by is None
 
 
 @pytest.mark.asyncio

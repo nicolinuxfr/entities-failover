@@ -15,6 +15,7 @@ CONF_CONFIRMATION_TIMEOUT: Final = "confirmation_timeout"
 CONF_FAILURE_COOLDOWN: Final = "failure_cooldown"
 CONF_RECOVERY_STABILITY: Final = "recovery_stability"
 CONF_FEATURE_POLICY: Final = "feature_policy"
+CONF_HIDE_SOURCES: Final = "hide_sources"
 CONF_REPAIRS_DELAY: Final = "repairs_delay"
 CONF_SELECTION_POLICY: Final = "selection_policy"
 
@@ -23,6 +24,7 @@ DEFAULT_CONFIRMATION_TIMEOUT: Final = 10.0
 DEFAULT_FAILURE_COOLDOWN: Final = 60.0
 DEFAULT_RECOVERY_STABILITY: Final = 30.0
 DEFAULT_FEATURE_POLICY: Final = "intersection"
+DEFAULT_HIDE_SOURCES: Final = False
 DEFAULT_REPAIRS_DELAY: Final = 0.0
 DEFAULT_SELECTION_POLICY: Final = "static_priority"
 

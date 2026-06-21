@@ -18,6 +18,7 @@ from homeassistant.core import (
     callback,
 )
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 from homeassistant.util import dt as dt_util
@@ -84,6 +85,7 @@ class FailoverManager:
         self._pending_confirmation_rule: ConfirmationRule | None = None
         self._pending_confirmation_data: dict[str, Any] = {}
         self._pending_confirmation_until: datetime | None = None
+        self._hidden_sources: set[str] = set()
 
     @property
     def active_state(self) -> State | None:
@@ -204,6 +206,7 @@ class FailoverManager:
     async def async_start(self) -> None:
         """Start tracking source states."""
 
+        self._hide_sources()
         self._refresh_health()
         self.active_source = self._best_operational_source()
         self.state_source = None
@@ -240,6 +243,7 @@ class FailoverManager:
         if self._repairs_issue_active:
             ir.async_delete_issue(self.hass, DOMAIN, self._repairs_issue_id)
             self._repairs_issue_active = False
+        self._restore_hidden_sources()
 
     def async_add_update_listener(self, callback_func: UpdateCallback) -> CALLBACK_TYPE:
         """Register an entity update callback."""
@@ -252,6 +256,39 @@ class FailoverManager:
                 self._callbacks.remove(callback_func)
 
         return _remove
+
+    @callback
+    def _hide_sources(self) -> None:
+        """Hide source entities in the entity registry when configured."""
+
+        if not self.config.hide_sources:
+            return
+        registry = er.async_get(self.hass)
+        for source in self.config.sources:
+            registry_entry = registry.async_get(source)
+            if registry_entry is None or registry_entry.hidden_by is not None:
+                continue
+            registry.async_update_entity(
+                source,
+                hidden_by=er.RegistryEntryHider.INTEGRATION,
+            )
+            self._hidden_sources.add(source)
+
+    @callback
+    def _restore_hidden_sources(self) -> None:
+        """Restore source visibility for entities hidden by this manager."""
+
+        if not self._hidden_sources:
+            return
+        registry = er.async_get(self.hass)
+        for source in self._hidden_sources:
+            registry_entry = registry.async_get(source)
+            if (
+                registry_entry is not None
+                and registry_entry.hidden_by == er.RegistryEntryHider.INTEGRATION
+            ):
+                registry.async_update_entity(source, hidden_by=None)
+        self._hidden_sources.clear()
 
     @callback
     def _notify(self) -> None:
