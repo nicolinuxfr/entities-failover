@@ -8,6 +8,7 @@ from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta
 from typing import Any
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import (
     CALLBACK_TYPE,
@@ -39,16 +40,19 @@ from .const import (
     ATTR_PRIORITY_INDEX,
     ATTR_SOURCES_DESYNCHRONIZED,
     ATTR_STATE_SOURCE,
+    CONF_LEARNING_ENABLED,
+    CONF_SOURCES,
     DOMAIN,
     ISSUE_ALL_SOURCES_UNAVAILABLE,
+    LEARNING_SAMPLE_COUNT,
 )
 from .helpers import friendly_name, state_available
+from .learning import LearningState, LearningStore
 from .model import (
     CommandResult,
     CommandValidation,
     FailoverConfig,
     ManagerDiagnostics,
-    SelectionPolicy,
     SourceHealth,
 )
 
@@ -59,11 +63,17 @@ UpdateCallback = Callable[[], None]
 class FailoverManager:
     """Manage source selection, health and command routing for one config entry."""
 
-    def __init__(self, hass: HomeAssistant, config: FailoverConfig) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        config: FailoverConfig,
+        entry: ConfigEntry | None = None,
+    ) -> None:
         """Initialize the manager."""
 
         self.hass = hass
         self.config = config
+        self._entry = entry
         self.adapter: DomainAdapter = adapter_for_domain(config.domain)
         self.active_source: str | None = None
         self.state_source: str | None = None
@@ -86,6 +96,8 @@ class FailoverManager:
         self._pending_confirmation_data: dict[str, Any] = {}
         self._pending_confirmation_until: datetime | None = None
         self._hidden_sources: set[str] = set()
+        self._learning_store = LearningStore(hass, config.unique_id)
+        self._learning = LearningState.empty(config.sources)
 
     @property
     def active_state(self) -> State | None:
@@ -130,8 +142,6 @@ class FailoverManager:
     def degraded(self) -> bool:
         """Return whether the failover entity is degraded."""
 
-        if self.config.selection_policy == SelectionPolicy.LOWEST_LATENCY:
-            return bool(self.excluded_sources)
         active_index = self.active_priority_index
         return (active_index is not None and active_index > 0) or bool(
             self.excluded_sources
@@ -143,21 +153,51 @@ class FailoverManager:
 
         if not self.config.sources:
             return None
-        if self.config.selection_policy == SelectionPolicy.LOWEST_LATENCY:
-            measured = [
-                source
-                for source in self.config.sources
-                if self._health[source].average_latency is not None
-            ]
-            if measured:
-                return min(
-                    measured,
-                    key=lambda source: (
-                        self._health[source].average_latency or 0.0,
-                        self.config.sources.index(source),
-                    ),
-                )
         return self.config.sources[0]
+
+    @property
+    def learning_status(self) -> str:
+        """Return the current learning lifecycle state."""
+
+        if not self.config.learning_enabled:
+            return "inactive"
+        completed = [
+            source for source in self.config.sources if self._learning.complete(source)
+        ]
+        if len(completed) == len(self.config.sources):
+            return "complete"
+        if completed:
+            return "partial"
+        return "learning"
+
+    @property
+    def learning_progress(self) -> dict[str, int]:
+        """Return successful sample counts by source."""
+
+        return {
+            source: len(self._learning.samples[source])
+            for source in self.config.sources
+        }
+
+    @property
+    def learned_latencies(self) -> dict[str, float]:
+        """Return learned median latency by completed source."""
+
+        return {
+            source: latency
+            for source in self.config.sources
+            if (latency := self._learning.median_latency(source)) is not None
+        }
+
+    @property
+    def learning_pending_sources(self) -> list[str]:
+        """Return sources that still need successful samples."""
+
+        return [
+            source
+            for source in self.config.sources
+            if not self._learning.complete(source)
+        ]
 
     @property
     def failover_active(self) -> bool:
@@ -206,6 +246,10 @@ class FailoverManager:
     async def async_start(self) -> None:
         """Start tracking source states."""
 
+        if self.config.learning_enabled:
+            self._learning = await self._learning_store.async_load(self.config.sources)
+        else:
+            await self._learning_store.async_remove()
         self._hide_sources()
         self._refresh_health()
         self.active_source = self._best_operational_source()
@@ -349,16 +393,11 @@ class FailoverManager:
             self.state_source = None
             return
 
-        if self.config.selection_policy == SelectionPolicy.LOWEST_LATENCY:
-            if best != self.active_source:
-                self._schedule_recovery(best)
-                return
-        else:
-            best_index = self.config.sources.index(best)
-            active_index = self.config.sources.index(self.active_source)
-            if best_index < active_index:
-                self._schedule_recovery(best)
-                return
+        best_index = self.config.sources.index(best)
+        active_index = self.config.sources.index(self.active_source)
+        if best_index < active_index:
+            self._schedule_recovery(best)
+            return
 
         if best == self.active_source:
             self._cancel_recovery_timer()
@@ -370,42 +409,6 @@ class FailoverManager:
         if not operational:
             return None
 
-        if self.config.selection_policy == SelectionPolicy.LOWEST_LATENCY:
-            # First, check if there's any operational source that has NO
-            # latency measurements yet.
-            unmeasured = [s for s in operational if not self._health[s].latencies]
-            if unmeasured:
-                return unmeasured[0]
-
-            # If all operational sources have measurements, check if any
-            # source's measurement is "stale".
-            now = dt_util.utcnow()
-            stale_threshold = timedelta(seconds=300)
-            stale_sources = [
-                s
-                for s in operational
-                if self._health[s].last_measured is not None
-                and now - self._health[s].last_measured > stale_threshold
-            ]
-            if stale_sources:
-                return min(
-                    stale_sources,
-                    key=lambda s: (
-                        self._health[s].last_measured,
-                        self.config.sources.index(s),
-                    ),
-                )
-
-            # Otherwise, pick the one with the lowest average latency
-            return min(
-                operational,
-                key=lambda s: (
-                    self._health[s].average_latency or 0.0,
-                    self.config.sources.index(s),
-                ),
-            )
-
-        # Default / Fallback: static_priority
         return operational[0]
 
     def _is_source_operational(self, source: str) -> bool:
@@ -473,24 +476,6 @@ class FailoverManager:
             self.config.name,
             old,
             new,
-        )
-
-    def _record_latency(self, source: str, latency: float) -> None:
-        """Record a latency measurement for a source."""
-
-        if source not in self._health:
-            return
-        health = self._health[source]
-        now = dt_util.utcnow()
-        health.latencies.append(latency)
-        if len(health.latencies) > 5:
-            health.latencies.pop(0)
-        health.last_measured = now
-        _LOGGER.debug(
-            "Recorded latency of %.3fs for source %s (average: %.3fs)",
-            latency,
-            source,
-            health.average_latency,
         )
 
     async def async_clear_failures(self) -> None:
@@ -569,8 +554,7 @@ class FailoverManager:
                     blocking=(
                         self.config.command_validation
                         == CommandValidation.STATE_CONFIRMATION
-                        or self.config.selection_policy
-                        == SelectionPolicy.LOWEST_LATENCY
+                        or self.config.learning_enabled
                     ),
                 )
                 expected = self.adapter.expected_result(service, before, data)
@@ -583,7 +567,7 @@ class FailoverManager:
                             f"{source} did not confirm {self.config.domain}.{service}"
                         )
                 latency = (dt_util.utcnow() - start_time).total_seconds()
-                self._record_latency(source, latency)
+                await self._async_record_learning_sample(source, latency)
                 self.last_command_result = CommandResult(
                     service=service,
                     source=source,
@@ -651,6 +635,27 @@ class FailoverManager:
     ) -> str | None:
         """Select a source for command routing."""
 
+        if self.config.learning_enabled:
+            candidates = [
+                source
+                for source in self.config.sources
+                if source not in tried
+                and not self._learning.complete(source)
+                and self._is_source_operational(source)
+                and self.adapter.source_supports_features(
+                    self.hass.states.get(source),
+                    required_features,
+                )
+            ]
+            if candidates:
+                return min(
+                    candidates,
+                    key=lambda source: (
+                        len(self._learning.samples[source]),
+                        self.config.sources.index(source),
+                    ),
+                )
+
         ordered: list[str] = []
         if self.active_source is not None:
             ordered.append(self.active_source)
@@ -665,6 +670,82 @@ class FailoverManager:
                 continue
             return source
         return None
+
+    async def _async_record_learning_sample(
+        self,
+        source: str,
+        latency: float,
+    ) -> None:
+        """Persist a successful sample and apply a learned order when ready."""
+
+        if not self.config.learning_enabled or self._learning.complete(source):
+            return
+        self._learning.add_sample(source, latency)
+        await self._learning_store.async_save(self._learning)
+        _LOGGER.debug(
+            "Entity Failover %s learned latency %.3fs for %s (%d/%d)",
+            self.config.name,
+            latency,
+            source,
+            len(self._learning.samples[source]),
+            LEARNING_SAMPLE_COUNT,
+        )
+        await self._async_apply_learned_order_if_ready()
+
+    async def _async_apply_learned_order_if_ready(self) -> None:
+        """Persist learned priority once every available source is measured."""
+
+        operational = [
+            source
+            for source in self.config.sources
+            if self._is_source_operational(source)
+        ]
+        if not operational or any(
+            not self._learning.complete(source) for source in operational
+        ):
+            return
+
+        original_index = {
+            source: index for index, source in enumerate(self.config.sources)
+        }
+        measured = [
+            source for source in self.config.sources if self._learning.complete(source)
+        ]
+        measured.sort(
+            key=lambda source: (
+                self._learning.median_latency(source),
+                original_index[source],
+            )
+        )
+        unmeasured = [
+            source
+            for source in self.config.sources
+            if not self._learning.complete(source)
+        ]
+        learned_order = [*measured, *unmeasured]
+        complete = not unmeasured
+
+        if self._entry is None or self.config.subentry_id is None:
+            return
+        subentry = self._entry.subentries.get(self.config.subentry_id)
+        if subentry is None:
+            return
+
+        data = dict(subentry.data)
+        order_changed = list(data.get(CONF_SOURCES, [])) != learned_order
+        data[CONF_SOURCES] = learned_order
+        if complete:
+            data[CONF_LEARNING_ENABLED] = False
+        if not order_changed and not complete:
+            return
+
+        if complete:
+            await self._learning_store.async_remove()
+        self.hass.config_entries.async_update_subentry(
+            entry=self._entry,
+            subentry=subentry,
+            data=data,
+        )
 
     async def _async_call_source(
         self,
@@ -982,5 +1063,10 @@ class FailoverManager:
                     self.hass,
                     self.effective_state_source,
                 ),
+                "learning_status": self.learning_status,
+                "learning_progress": self.learning_progress,
+                "learning_target": LEARNING_SAMPLE_COUNT,
+                "learned_median_latency": self.learned_latencies,
+                "learning_pending_sources": self.learning_pending_sources,
             },
         )

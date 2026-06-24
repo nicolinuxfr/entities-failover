@@ -72,6 +72,10 @@ class FailoverActiveSourceSensor(FailoverEntityMixin, SensorEntity):
                 friendly_name(self.manager.hass, source) for source in sources
             ],
             ATTR_SOURCE_COUNT: len(self.manager.config.sources),
+            "learning_status": self.manager.learning_status,
+            "learning_progress": self.manager.learning_progress,
+            "learned_median_latency": self.manager.learned_latencies,
+            "learning_pending_sources": self.manager.learning_pending_sources,
         }
 
 

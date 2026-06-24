@@ -62,7 +62,7 @@ async def async_setup_entry(
 
     hass.data.setdefault(DOMAIN, {})
     managers = {
-        config.unique_id: FailoverManager(hass, config)
+        config.unique_id: FailoverManager(hass, config, entry)
         for config in _entry_configs(entry)
     }
     entry.runtime_data = managers

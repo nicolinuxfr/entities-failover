@@ -11,7 +11,7 @@
         "data": {
           "name": "Nom de l'entité de secours",
           "sources": "Sources, par ordre de priorité",
-          "selection_policy": "Politique de sélection",
+          "learning_enabled": "Apprendre automatiquement l'ordre des sources",
           "recovery_stability": "Délai de stabilité avant retour vers une source prioritaire",
           "failure_cooldown": "Durée d'exclusion temporaire après échec",
           "hide_sources": "Masquer les entités sources",
@@ -23,7 +23,7 @@
         },
         "data_description": {
           "sources": "La première source disponible est utilisée. Si elle échoue, Entity Failover passe à la suivante.",
-          "selection_policy": "Choisissez si les commandes sont acheminées selon une priorité statique ou selon la latence mesurée la plus faible.",
+          "learning_enabled": "Utilise les commandes normales pour mesurer chaque source trois fois, puis enregistre l'ordre le plus réactif. Aucune commande de test n'est envoyée.",
           "recovery_stability": "Une source plus prioritaire doit rester disponible pendant cette durée avant de redevenir active.",
           "failure_cooldown": "Après une erreur de commande, la source est ignorée pendant cette durée.",
           "hide_sources": "Masque les entités sources sous-jacentes des listes d'entités courantes tout en gardant l'entité de secours visible.",
@@ -60,7 +60,8 @@
       "circular_dependency": "Cet ordre de sources créerait une dépendance circulaire.",
       "incompatible_device_class": "Les sources sélectionnées ont des classes d'appareil incompatibles.",
       "incompatible_state_class": "Les sources sélectionnées ont des classes d'état incompatibles.",
-      "incompatible_unit_of_measurement": "Les sources sélectionnées ont des unités incompatibles."
+      "incompatible_unit_of_measurement": "Les sources sélectionnées ont des unités incompatibles.",
+      "learning_not_supported": "L'apprentissage automatique de l'ordre nécessite un domaine d'entité commandable."
     }
   },
   "config_subentries": {
@@ -82,7 +83,8 @@
         "circular_dependency": "Cet ordre de sources créerait une dépendance circulaire.",
         "incompatible_device_class": "Les sources sélectionnées ont des classes d'appareil incompatibles.",
         "incompatible_state_class": "Les sources sélectionnées ont des classes d'état incompatibles.",
-        "incompatible_unit_of_measurement": "Les sources sélectionnées ont des unités incompatibles."
+        "incompatible_unit_of_measurement": "Les sources sélectionnées ont des unités incompatibles.",
+        "learning_not_supported": "L'apprentissage automatique de l'ordre nécessite un domaine d'entité commandable."
       },
       "step": {
         "user": {
@@ -91,7 +93,7 @@
           "data": {
             "name": "Nom de l'entité de secours",
             "sources": "Sources, par ordre de priorité",
-            "selection_policy": "Politique de sélection",
+            "learning_enabled": "Apprendre automatiquement l'ordre des sources",
             "recovery_stability": "Délai de stabilité avant retour vers une source prioritaire",
             "failure_cooldown": "Durée d'exclusion temporaire après échec",
             "hide_sources": "Masquer les entités sources",
@@ -103,7 +105,7 @@
           },
           "data_description": {
             "sources": "La première source disponible est utilisée. Si elle échoue, Entity Failover passe à la suivante.",
-            "selection_policy": "Choisissez si les commandes sont acheminées selon une priorité statique ou selon la latence mesurée la plus faible.",
+            "learning_enabled": "Utilise les commandes normales pour mesurer chaque source trois fois, puis enregistre l'ordre le plus réactif. Aucune commande de test n'est envoyée.",
             "recovery_stability": "Une source plus prioritaire doit rester disponible pendant cette durée avant de redevenir active.",
             "failure_cooldown": "Après une erreur de commande, la source est ignorée pendant cette durée.",
             "hide_sources": "Masque les entités sources sous-jacentes des listes d'entités courantes tout en gardant l'entité de secours visible.",
@@ -136,7 +138,7 @@
           "data": {
             "name": "Nom de l'entité de secours",
             "sources": "Sources, par ordre de priorité",
-            "selection_policy": "Politique de sélection",
+            "learning_enabled": "Apprendre automatiquement l'ordre des sources",
             "recovery_stability": "Délai de stabilité avant retour vers une source prioritaire",
             "failure_cooldown": "Durée d'exclusion temporaire après échec",
             "hide_sources": "Masquer les entités sources",
@@ -148,7 +150,7 @@
           },
           "data_description": {
             "sources": "La première source disponible est utilisée. Si elle échoue, Entity Failover passe à la suivante.",
-            "selection_policy": "Choisissez si les commandes sont acheminées selon une priorité statique ou selon la latence mesurée la plus faible.",
+            "learning_enabled": "Utilise les commandes normales pour mesurer chaque source trois fois, puis enregistre l'ordre le plus réactif. Aucune commande de test n'est envoyée.",
             "recovery_stability": "Une source plus prioritaire doit rester disponible pendant cette durée avant de redevenir active.",
             "failure_cooldown": "Après une erreur de commande, la source est ignorée pendant cette durée.",
             "hide_sources": "Masque les entités sources sous-jacentes des listes d'entités courantes tout en gardant l'entité de secours visible.",
@@ -211,12 +213,6 @@
     }
   },
   "selector": {
-    "selection_policy": {
-      "options": {
-        "static_priority": "Priorité statique",
-        "lowest_latency": "Latence la plus faible (le plus réactif)"
-      }
-    },
     "feature_policy": {
       "options": {
         "intersection": "Fonctions communes à toutes les sources",

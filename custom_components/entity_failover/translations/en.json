@@ -11,7 +11,7 @@
         "data": {
           "name": "Failover entity name",
           "sources": "Sources, in priority order",
-          "selection_policy": "Selection policy",
+          "learning_enabled": "Learn source order automatically",
           "recovery_stability": "Stability delay before returning to a higher-priority source",
           "failure_cooldown": "Temporary exclusion duration after a failure",
           "hide_sources": "Hide source entities",
@@ -23,7 +23,7 @@
         },
         "data_description": {
           "sources": "The first available source is used. If it fails, Entity Failover switches to the next one.",
-          "selection_policy": "Choose whether to route commands to sources based on static priority or based on the lowest measured latency.",
+          "learning_enabled": "Use normal commands to measure each source three times, then save the most responsive order. No test commands are sent.",
           "recovery_stability": "A higher-priority source must stay available for this long before becoming active again.",
           "failure_cooldown": "After a command error, the failed source is ignored for this long.",
           "hide_sources": "Hide the underlying source entities from regular entity lists while keeping the failover entity visible.",
@@ -60,7 +60,8 @@
       "circular_dependency": "This source order would create a circular dependency.",
       "incompatible_device_class": "The selected sources have incompatible device classes.",
       "incompatible_state_class": "The selected sources have incompatible state classes.",
-      "incompatible_unit_of_measurement": "The selected sources have incompatible units."
+      "incompatible_unit_of_measurement": "The selected sources have incompatible units.",
+      "learning_not_supported": "Automatic order learning requires a commandable entity domain."
     }
   },
   "config_subentries": {
@@ -82,7 +83,8 @@
         "circular_dependency": "This source order would create a circular dependency.",
         "incompatible_device_class": "The selected sources have incompatible device classes.",
         "incompatible_state_class": "The selected sources have incompatible state classes.",
-        "incompatible_unit_of_measurement": "The selected sources have incompatible units."
+        "incompatible_unit_of_measurement": "The selected sources have incompatible units.",
+        "learning_not_supported": "Automatic order learning requires a commandable entity domain."
       },
       "step": {
         "user": {
@@ -91,7 +93,7 @@
           "data": {
             "name": "Failover entity name",
             "sources": "Sources, in priority order",
-            "selection_policy": "Selection policy",
+            "learning_enabled": "Learn source order automatically",
             "recovery_stability": "Stability delay before returning to a higher-priority source",
             "failure_cooldown": "Temporary exclusion duration after a failure",
             "hide_sources": "Hide source entities",
@@ -103,7 +105,7 @@
           },
           "data_description": {
             "sources": "The first available source is used. If it fails, Entity Failover switches to the next one.",
-            "selection_policy": "Choose whether to route commands to sources based on static priority or based on the lowest measured latency.",
+            "learning_enabled": "Use normal commands to measure each source three times, then save the most responsive order. No test commands are sent.",
             "recovery_stability": "A higher-priority source must stay available for this long before becoming active again.",
             "failure_cooldown": "After a command error, the failed source is ignored for this long.",
             "hide_sources": "Hide the underlying source entities from regular entity lists while keeping the failover entity visible.",
@@ -136,7 +138,7 @@
           "data": {
             "name": "Failover entity name",
             "sources": "Sources, in priority order",
-            "selection_policy": "Selection policy",
+            "learning_enabled": "Learn source order automatically",
             "recovery_stability": "Stability delay before returning to a higher-priority source",
             "failure_cooldown": "Temporary exclusion duration after a failure",
             "hide_sources": "Hide source entities",
@@ -148,7 +150,7 @@
           },
           "data_description": {
             "sources": "The first available source is used. If it fails, Entity Failover switches to the next one.",
-            "selection_policy": "Choose whether to route commands to sources based on static priority or based on the lowest measured latency.",
+            "learning_enabled": "Use normal commands to measure each source three times, then save the most responsive order. No test commands are sent.",
             "recovery_stability": "A higher-priority source must stay available for this long before becoming active again.",
             "failure_cooldown": "After a command error, the failed source is ignored for this long.",
             "hide_sources": "Hide the underlying source entities from regular entity lists while keeping the failover entity visible.",
@@ -211,12 +213,6 @@
     }
   },
   "selector": {
-    "selection_policy": {
-      "options": {
-        "static_priority": "Static priority",
-        "lowest_latency": "Lowest latency (most responsive)"
-      }
-    },
     "feature_policy": {
       "options": {
         "intersection": "Features shared by every source",

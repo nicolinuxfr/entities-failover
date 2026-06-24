@@ -8,14 +8,23 @@ from datetime import timedelta
 
 import pytest
 from homeassistant.util import dt as dt_util
-from pytest_homeassistant_custom_component.common import async_fire_time_changed
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 
+from custom_components.entity_failover.const import (
+    CONF_DOMAIN,
+    CONF_LEARNING_ENABLED,
+    CONF_SOURCES,
+    DOMAIN,
+    SUBENTRY_TYPE_FAILOVER,
+)
 from custom_components.entity_failover.manager import FailoverManager
 from custom_components.entity_failover.model import (
     CommandValidation,
     FailoverConfig,
     FeaturePolicy,
-    SelectionPolicy,
 )
 
 
@@ -94,7 +103,10 @@ async def test_command_retries_on_backup(hass) -> None:
     hass.states.async_set("switch.backup", "off")
     manager = FailoverManager(
         hass,
-        _config(command_validation=CommandValidation.STATE_CONFIRMATION),
+        _config(
+            command_validation=CommandValidation.STATE_CONFIRMATION,
+            learning_enabled=True,
+        ),
     )
     await manager.async_start()
 
@@ -104,6 +116,10 @@ async def test_command_retries_on_backup(hass) -> None:
     assert calls == ["switch.primary", "switch.backup"]
     assert manager.active_source == "switch.backup"
     assert "switch.primary" in manager.excluded_sources
+    assert manager.learning_progress == {
+        "switch.primary": 0,
+        "switch.backup": 1,
+    }
     await manager.async_unload()
 
 
@@ -246,10 +262,10 @@ async def test_service_call_validation_does_not_block_on_slow_source(hass) -> No
 
 
 @pytest.mark.asyncio
-async def test_latency_selection_waits_for_service_call_to_measure_latency(
+async def test_learning_waits_for_service_call_to_measure_latency(
     hass,
 ) -> None:
-    """Lowest-latency selection waits for service completion before recording."""
+    """Learning waits for service completion before recording."""
 
     call_started = asyncio.Event()
     allow_finish = asyncio.Event()
@@ -264,7 +280,7 @@ async def test_latency_selection_waits_for_service_call_to_measure_latency(
     hass.states.async_set("switch.backup", "off")
     manager = FailoverManager(
         hass,
-        _config(selection_policy=SelectionPolicy.LOWEST_LATENCY),
+        _config(learning_enabled=True),
     )
     await manager.async_start()
 
@@ -273,11 +289,11 @@ async def test_latency_selection_waits_for_service_call_to_measure_latency(
     await hass.async_block_till_done(wait_background_tasks=True)
 
     assert not task.done()
-    assert not manager._health["switch.primary"].latencies
+    assert manager.learning_progress["switch.primary"] == 0
 
     allow_finish.set()
     await asyncio.wait_for(task, timeout=0.1)
-    assert manager._health["switch.primary"].latencies
+    assert manager.learning_progress["switch.primary"] == 1
     await manager.async_unload()
 
 
@@ -488,32 +504,9 @@ async def test_static_priority_failover_active_when_primary_unavailable(hass) ->
 
 
 @pytest.mark.asyncio
-async def test_latency_failover_active_when_fastest_source_unavailable(
-    hass,
-) -> None:
-    """Failover is active when the measured fastest source is down."""
-
-    hass.states.async_set("switch.primary", "unavailable")
-    hass.states.async_set("switch.backup", "off")
-    manager = FailoverManager(
-        hass,
-        _config(selection_policy=SelectionPolicy.LOWEST_LATENCY),
-    )
-
-    manager._health["switch.primary"].latencies = [0.1]
-    manager._health["switch.backup"].latencies = [1.0]
-    await manager.async_start()
-
-    assert manager.nominal_source == "switch.primary"
-    assert manager.active_source == "switch.backup"
-    assert manager.failover_active
-    assert manager.state_attributes["nominal_source"] == "switch.primary"
-    await manager.async_unload()
-
-
 @pytest.mark.asyncio
-async def test_latency_selection_bootstraps_and_explores(hass) -> None:
-    """Unmeasured sources are tried first in configured priority order."""
+async def test_learning_rotates_commands_without_changing_active_source(hass) -> None:
+    """Learning balances real commands while state priority remains static."""
 
     calls: list[str] = []
 
@@ -529,138 +522,210 @@ async def test_latency_selection_bootstraps_and_explores(hass) -> None:
     manager = FailoverManager(
         hass,
         _config(
-            selection_policy=SelectionPolicy.LOWEST_LATENCY,
-            recovery_stability=0,
-            command_validation=CommandValidation.STATE_CONFIRMATION,
+            learning_enabled=True,
         ),
     )
     await manager.async_start()
 
-    # Initially, both are unmeasured. The first in configured order
-    # (switch.primary) is active.
     assert manager.active_source == "switch.primary"
-    assert not manager._health["switch.primary"].latencies
-    assert not manager._health["switch.backup"].latencies
+    for _ in range(4):
+        await manager.async_call_service("turn_on")
+        await hass.async_block_till_done()
 
-    # Send a command. It goes to switch.primary, and measures latency.
-    await manager.async_call_service("turn_on")
-    await hass.async_block_till_done()
-
-    assert calls == ["switch.primary"]
-    assert manager._health["switch.primary"].latencies
-    assert not manager._health["switch.backup"].latencies
-
-    # Now switch.backup is the only unmeasured operational source.
-    # It should become the active source. We must advance time to trigger
-    # the recovery timer callback.
-    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=1))
-    await hass.async_block_till_done()
-    assert manager.active_source == "switch.backup"
-
-    # Next command should route to switch.backup to measure it.
-    await manager.async_call_service("turn_on")
-    await hass.async_block_till_done()
-
-    assert calls == ["switch.primary", "switch.backup"]
-    assert manager._health["switch.backup"].latencies
-
-    # Once all are measured, it picks the faster one.
-    # Since they are equal, it falls back to manual order (switch.primary).
-    now = dt_util.utcnow()
-    manager._health["switch.primary"].latencies = [1.0]
-    manager._health["switch.primary"].last_measured = now
-    manager._health["switch.backup"].latencies = [1.0]
-    manager._health["switch.backup"].last_measured = now
-    old_active = manager.active_source
-    manager._refresh_health()
-    manager._select_after_state_change(old_active)
-    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=1))
-    await hass.async_block_till_done()
+    assert calls == [
+        "switch.primary",
+        "switch.backup",
+        "switch.primary",
+        "switch.backup",
+    ]
     assert manager.active_source == "switch.primary"
+    assert manager.learning_progress == {
+        "switch.primary": 2,
+        "switch.backup": 2,
+    }
     await manager.async_unload()
 
 
 @pytest.mark.asyncio
-async def test_latency_selection_prefers_lower_average(hass) -> None:
-    """The manager routes to the source with the lowest average latency."""
+async def test_learning_never_rotates_source_from_state_events(hass) -> None:
+    """Ordinary state updates do not change priority during learning."""
 
-    async def _turn_on(call):
-        entity_id = call.data["entity_id"]
-        hass.states.async_set(entity_id, "on")
-
-    hass.services.async_register("switch", "turn_on", _turn_on)
     hass.states.async_set("switch.primary", "off")
     hass.states.async_set("switch.backup", "off")
-
-    manager = FailoverManager(
-        hass,
-        _config(
-            selection_policy=SelectionPolicy.LOWEST_LATENCY,
-            recovery_stability=0,
-        ),
-    )
+    manager = FailoverManager(hass, _config(learning_enabled=True))
     await manager.async_start()
 
-    # Manually seed latencies to simulate measurements
-    now = dt_util.utcnow()
-    manager._health["switch.primary"].latencies = [2.0, 2.5]
-    manager._health["switch.primary"].last_measured = now
-    manager._health["switch.backup"].latencies = [0.5, 0.4]
-    manager._health["switch.backup"].last_measured = now
+    for state in ("on", "off", "on"):
+        hass.states.async_set("switch.backup", state)
+        await hass.async_block_till_done()
 
-    # Trigger a refresh
-    old_active = manager.active_source
-    manager._refresh_health()
-    manager._select_after_state_change(old_active)
-
-    # Backup should be active because its average latency (0.45s)
-    # is lower than primary (2.25s).
-    # We must advance time to trigger the recovery timer callback.
-    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=1))
-    await hass.async_block_till_done()
-    assert manager.active_source == "switch.backup"
-    assert not manager.degraded
+    assert manager.active_source == "switch.primary"
+    assert manager.learning_progress == {
+        "switch.primary": 0,
+        "switch.backup": 0,
+    }
     await manager.async_unload()
 
 
 @pytest.mark.asyncio
-async def test_latency_selection_refreshes_stale_source(hass) -> None:
-    """A stale measurement triggers exploration to refresh statistics."""
+async def test_learning_skips_sources_incompatible_with_command(hass) -> None:
+    """A source without required features receives no learning sample."""
+
+    calls: list[str] = []
 
     async def _turn_on(call):
-        entity_id = call.data["entity_id"]
-        hass.states.async_set(entity_id, "on")
+        calls.append(call.data["entity_id"])
 
     hass.services.async_register("switch", "turn_on", _turn_on)
+    hass.states.async_set("switch.primary", "off", {"supported_features": 0})
+    hass.states.async_set("switch.backup", "off", {"supported_features": 1})
+    manager = FailoverManager(hass, _config(learning_enabled=True))
+    await manager.async_start()
+
+    await manager.async_call_service("turn_on", required_features=1)
+
+    assert calls == ["switch.backup"]
+    assert manager.learning_progress == {
+        "switch.primary": 0,
+        "switch.backup": 1,
+    }
+    await manager.async_unload()
+
+
+@pytest.mark.asyncio
+async def test_learning_writes_median_order_and_disables_itself(hass) -> None:
+    """Completed learning persists median order and disables the checkbox."""
+
     hass.states.async_set("switch.primary", "off")
     hass.states.async_set("switch.backup", "off")
-
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Entity Failover",
+        data={},
+        subentries_data=[
+            {
+                "data": {
+                    "name": "Kitchen Switch",
+                    CONF_DOMAIN: "switch",
+                    CONF_SOURCES: ["switch.primary", "switch.backup"],
+                    CONF_LEARNING_ENABLED: True,
+                },
+                "subentry_type": SUBENTRY_TYPE_FAILOVER,
+                "title": "Kitchen Switch",
+                "unique_id": "learning-order",
+            }
+        ],
+        version=3,
+    )
+    entry.add_to_hass(hass)
+    subentry = next(iter(entry.subentries.values()))
     manager = FailoverManager(
         hass,
-        _config(
-            selection_policy=SelectionPolicy.LOWEST_LATENCY,
-            recovery_stability=0,
-        ),
+        FailoverConfig.from_subentry(entry, subentry),
+        entry,
     )
     await manager.async_start()
 
-    # Primary is fast (0.1s) and backup is slow (2.0s)
-    now = dt_util.utcnow()
-    manager._health["switch.primary"].latencies = [0.1]
-    manager._health["switch.primary"].last_measured = now
-    manager._health["switch.backup"].latencies = [2.0]
-    # Backup measurement is 6 minutes old (stale)
-    manager._health["switch.backup"].last_measured = now - timedelta(seconds=360)
+    for latency in (0.8, 1.0, 1.2):
+        await manager._async_record_learning_sample("switch.primary", latency)
+    for latency in (0.1, 0.2, 0.3):
+        await manager._async_record_learning_sample("switch.backup", latency)
 
-    # Trigger refresh
-    old_active = manager.active_source
-    manager._refresh_health()
-    manager._select_after_state_change(old_active)
+    updated = entry.subentries[subentry.subentry_id]
+    assert updated.data[CONF_SOURCES] == ["switch.backup", "switch.primary"]
+    assert updated.data[CONF_LEARNING_ENABLED] is False
+    assert manager.learned_latencies == {
+        "switch.primary": 1.0,
+        "switch.backup": 0.2,
+    }
+    await manager.async_unload()
 
-    # Backup should become active because its latency measurement is
-    # stale and needs refresh.
-    # We must advance time to trigger the recovery timer callback.
-    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=1))
+
+@pytest.mark.asyncio
+async def test_learning_samples_survive_manager_reload(hass) -> None:
+    """Incomplete learning resumes from persisted samples."""
+
+    hass.states.async_set("switch.primary", "off")
+    hass.states.async_set("switch.backup", "off")
+    config = _config(learning_enabled=True, unique_id="persist-learning")
+    manager = FailoverManager(hass, config)
+    await manager.async_start()
+    await manager._async_record_learning_sample("switch.primary", 0.4)
+    await manager.async_unload()
+
+    restored = FailoverManager(hass, config)
+    await restored.async_start()
+
+    assert restored.learning_progress == {
+        "switch.primary": 1,
+        "switch.backup": 0,
+    }
+    await restored.async_unload()
+
+
+@pytest.mark.asyncio
+async def test_learning_partially_orders_available_sources(hass) -> None:
+    """Unavailable sources stay last and can be evaluated after returning."""
+
+    hass.states.async_set("switch.primary", "off")
+    hass.states.async_set("switch.backup", "off")
+    hass.states.async_set("switch.offline", "unavailable")
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Entity Failover",
+        data={},
+        subentries_data=[
+            {
+                "data": {
+                    "name": "Kitchen Switch",
+                    CONF_DOMAIN: "switch",
+                    CONF_SOURCES: [
+                        "switch.primary",
+                        "switch.backup",
+                        "switch.offline",
+                    ],
+                    CONF_LEARNING_ENABLED: True,
+                },
+                "subentry_type": SUBENTRY_TYPE_FAILOVER,
+                "title": "Kitchen Switch",
+                "unique_id": "partial-learning",
+            }
+        ],
+        version=3,
+    )
+    entry.add_to_hass(hass)
+    subentry = next(iter(entry.subentries.values()))
+    manager = FailoverManager(
+        hass,
+        FailoverConfig.from_subentry(entry, subentry),
+        entry,
+    )
+    await manager.async_start()
+
+    for latency in (0.8, 1.0, 1.2):
+        await manager._async_record_learning_sample("switch.primary", latency)
+    for latency in (0.1, 0.2, 0.3):
+        await manager._async_record_learning_sample("switch.backup", latency)
+
+    updated = entry.subentries[subentry.subentry_id]
+    assert updated.data[CONF_SOURCES] == [
+        "switch.backup",
+        "switch.primary",
+        "switch.offline",
+    ]
+    assert updated.data[CONF_LEARNING_ENABLED] is True
+    assert manager.learning_status == "partial"
+
+    hass.states.async_set("switch.offline", "off")
     await hass.async_block_till_done()
-    assert manager.active_source == "switch.backup"
+    for latency in (0.04, 0.05, 0.06):
+        await manager._async_record_learning_sample("switch.offline", latency)
+
+    completed = entry.subentries[subentry.subentry_id]
+    assert completed.data[CONF_SOURCES] == [
+        "switch.offline",
+        "switch.backup",
+        "switch.primary",
+    ]
+    assert completed.data[CONF_LEARNING_ENABLED] is False
     await manager.async_unload()

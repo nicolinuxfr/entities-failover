@@ -17,18 +17,18 @@ from .const import (
     CONF_FAILURE_COOLDOWN,
     CONF_FEATURE_POLICY,
     CONF_HIDE_SOURCES,
+    CONF_LEARNING_ENABLED,
     CONF_RECOVERY_STABILITY,
     CONF_REPAIRS_DELAY,
-    CONF_SELECTION_POLICY,
     CONF_SOURCES,
     DEFAULT_COMMAND_VALIDATION,
     DEFAULT_CONFIRMATION_TIMEOUT,
     DEFAULT_FAILURE_COOLDOWN,
     DEFAULT_FEATURE_POLICY,
     DEFAULT_HIDE_SOURCES,
+    DEFAULT_LEARNING_ENABLED,
     DEFAULT_RECOVERY_STABILITY,
     DEFAULT_REPAIRS_DELAY,
-    DEFAULT_SELECTION_POLICY,
 )
 
 
@@ -44,13 +44,6 @@ class FeaturePolicy(StrEnum):
 
     INTERSECTION = "intersection"
     ACTIVE_SOURCE = "active_source"
-
-
-class SelectionPolicy(StrEnum):
-    """Source selection policies."""
-
-    STATIC_PRIORITY = "static_priority"
-    LOWEST_LATENCY = "lowest_latency"
 
 
 @dataclass(slots=True, frozen=True)
@@ -69,7 +62,7 @@ class FailoverConfig:
     feature_policy: FeaturePolicy = FeaturePolicy.INTERSECTION
     hide_sources: bool = DEFAULT_HIDE_SOURCES
     repairs_delay: float = DEFAULT_REPAIRS_DELAY
-    selection_policy: SelectionPolicy = SelectionPolicy.STATIC_PRIORITY
+    learning_enabled: bool = DEFAULT_LEARNING_ENABLED
     subentry_id: str | None = None
 
     @classmethod
@@ -106,8 +99,8 @@ class FailoverConfig:
             ),
             hide_sources=bool(data.get(CONF_HIDE_SOURCES, DEFAULT_HIDE_SOURCES)),
             repairs_delay=float(data.get(CONF_REPAIRS_DELAY, DEFAULT_REPAIRS_DELAY)),
-            selection_policy=SelectionPolicy(
-                data.get(CONF_SELECTION_POLICY, DEFAULT_SELECTION_POLICY)
+            learning_enabled=bool(
+                data.get(CONF_LEARNING_ENABLED, DEFAULT_LEARNING_ENABLED)
             ),
         )
 
@@ -128,7 +121,7 @@ class FailoverConfig:
             "feature_policy": self.feature_policy.value,
             "hide_sources": self.hide_sources,
             "repairs_delay": self.repairs_delay,
-            "selection_policy": self.selection_policy.value,
+            "learning_enabled": self.learning_enabled,
         }
 
 
@@ -141,21 +134,12 @@ class SourceHealth:
     available: bool = False
     excluded_until: datetime | None = None
     last_error: str | None = None
-    latencies: list[float] = field(default_factory=list)
-    last_measured: datetime | None = None
 
     @property
     def excluded(self) -> bool:
         """Return whether the source is currently excluded."""
 
         return self.excluded_until is not None
-
-    @property
-    def average_latency(self) -> float | None:
-        """Return the average latency of the source."""
-        if not self.latencies:
-            return None
-        return sum(self.latencies) / len(self.latencies)
 
     def as_dict(self) -> dict[str, Any]:
         """Return a serializable representation."""
@@ -168,11 +152,6 @@ class SourceHealth:
             if self.excluded_until
             else None,
             "last_error": self.last_error,
-            "latencies": self.latencies,
-            "average_latency": self.average_latency,
-            "last_measured": self.last_measured.isoformat()
-            if self.last_measured
-            else None,
         }
 
 

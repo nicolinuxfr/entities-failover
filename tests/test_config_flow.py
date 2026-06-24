@@ -19,9 +19,9 @@ from custom_components.entity_failover.const import (
     CONF_FAILURE_COOLDOWN,
     CONF_FEATURE_POLICY,
     CONF_HIDE_SOURCES,
+    CONF_LEARNING_ENABLED,
     CONF_RECOVERY_STABILITY,
     CONF_REPAIRS_DELAY,
-    CONF_SELECTION_POLICY,
     CONF_SOURCES,
     DEFAULT_REPAIRS_DELAY,
     DOMAIN,
@@ -199,7 +199,7 @@ async def test_config_flow_creates_entry(hass) -> None:
     assert subentry["title"] == "Kitchen Switch"
     assert subentry["subentry_type"] == SUBENTRY_TYPE_FAILOVER
     assert subentry["data"][CONF_DOMAIN] == "switch"
-    assert subentry["data"][CONF_SELECTION_POLICY] == "static_priority"
+    assert subentry["data"][CONF_LEARNING_ENABLED] is False
     assert set(subentry["data"]) == {
         "name",
         CONF_DOMAIN,
@@ -211,7 +211,7 @@ async def test_config_flow_creates_entry(hass) -> None:
         CONF_FEATURE_POLICY,
         CONF_HIDE_SOURCES,
         CONF_REPAIRS_DELAY,
-        CONF_SELECTION_POLICY,
+        CONF_LEARNING_ENABLED,
     }
 
 
@@ -440,8 +440,8 @@ async def test_subentry_flow_reorders_sources_with_update_listener(hass) -> None
 
 
 @pytest.mark.asyncio
-async def test_config_flow_supports_lowest_latency_policy(hass) -> None:
-    """The config flow allows selecting lowest_latency selection policy."""
+async def test_config_flow_supports_order_learning(hass) -> None:
+    """The config flow allows enabling one-shot order learning."""
 
     hass.states.async_set("switch.one", "on")
     hass.states.async_set("switch.two", "off")
@@ -457,7 +457,7 @@ async def test_config_flow_supports_lowest_latency_policy(hass) -> None:
         {
             "name": "Kitchen Switch",
             CONF_SOURCES: ["switch.one", "switch.two"],
-            CONF_SELECTION_POLICY: "lowest_latency",
+            CONF_LEARNING_ENABLED: True,
             CONF_RECOVERY_STABILITY: 30,
             CONF_FAILURE_COOLDOWN: 60,
             ADVANCED_SECTION: {
@@ -470,4 +470,35 @@ async def test_config_flow_supports_lowest_latency_policy(hass) -> None:
     )
     assert result["type"] == "create_entry"
     subentry = next(iter(result["subentries"]))
-    assert subentry["data"][CONF_SELECTION_POLICY] == "lowest_latency"
+    assert subentry["data"][CONF_LEARNING_ENABLED] is True
+
+
+@pytest.mark.asyncio
+async def test_config_flow_rejects_learning_for_read_only_domain(hass) -> None:
+    """Read-only domains cannot learn command latency."""
+
+    hass.states.async_set("sensor.one", "1")
+    hass.states.async_set("sensor.two", "2")
+
+    flow = EntityFailoverConfigFlow()
+    flow.hass = hass
+    flow.context = {"source": "user"}
+
+    result = await flow.async_step_user(
+        {
+            "name": "Temperature",
+            CONF_SOURCES: ["sensor.one", "sensor.two"],
+            CONF_LEARNING_ENABLED: True,
+            CONF_RECOVERY_STABILITY: 30,
+            CONF_FAILURE_COOLDOWN: 60,
+            ADVANCED_SECTION: {
+                CONF_FEATURE_POLICY: "intersection",
+                CONF_COMMAND_VALIDATION: "service_call",
+                CONF_CONFIRMATION_TIMEOUT: 10,
+                CONF_REPAIRS_DELAY: 0,
+            },
+        },
+    )
+
+    assert result["type"] == "form"
+    assert result["errors"] == {CONF_LEARNING_ENABLED: "learning_not_supported"}

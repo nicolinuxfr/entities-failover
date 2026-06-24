@@ -63,6 +63,20 @@ Defaults:
 - Failure cooldown: 60 seconds
 - Command verification: retry if the service call fails
 - Exposed features: features shared by every source
+- Automatic source-order learning: disabled
+
+## Source-order learning
+
+Commandable failover entities can learn their source priority from normal
+commands. While learning is enabled, Entity Failover routes commands across
+sources until each available source has three successful latency samples. It
+then sorts the sources by median latency and saves that order directly in the
+entity configuration.
+
+Learning never sends test commands. An unavailable source is kept after the
+measured sources and is evaluated when it returns. Once every configured source
+has been measured, learning disables itself and normal static-priority
+failover continues with the saved order.
 
 ## Source Availability
 

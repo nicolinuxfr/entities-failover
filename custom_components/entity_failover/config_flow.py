@@ -16,32 +16,33 @@ from homeassistant.helpers import selector
 from .adapters import adapter_for_domain
 from .const import (
     COMMAND_VALIDATION_MODES,
+    COMMANDABLE_DOMAINS,
     CONF_COMMAND_VALIDATION,
     CONF_CONFIRMATION_TIMEOUT,
     CONF_DOMAIN,
     CONF_FAILURE_COOLDOWN,
     CONF_FEATURE_POLICY,
     CONF_HIDE_SOURCES,
+    CONF_LEARNING_ENABLED,
     CONF_RECOVERY_STABILITY,
     CONF_REPAIRS_DELAY,
-    CONF_SELECTION_POLICY,
     CONF_SOURCES,
     DEFAULT_COMMAND_VALIDATION,
     DEFAULT_CONFIRMATION_TIMEOUT,
     DEFAULT_FAILURE_COOLDOWN,
     DEFAULT_FEATURE_POLICY,
     DEFAULT_HIDE_SOURCES,
+    DEFAULT_LEARNING_ENABLED,
     DEFAULT_RECOVERY_STABILITY,
     DEFAULT_REPAIRS_DELAY,
-    DEFAULT_SELECTION_POLICY,
     DOMAIN,
     FEATURE_POLICIES,
     NAME,
-    SELECTION_POLICIES,
     SUBENTRY_TYPE_FAILOVER,
     SUPPORTED_DOMAINS,
 )
 from .helpers import entity_domain, normalize_sources
+from .learning import LearningStore
 
 ADVANCED_SECTION = "advanced"
 
@@ -75,17 +76,22 @@ class EntityFailoverConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             sources = normalize_sources(user_input[CONF_SOURCES])
             domain = entity_domain(sources[0]) if sources else ""
             error = _validate_sources(self.hass, domain, sources, None)
+            learning_error = _validate_learning(user_input, domain)
             if error is None:
-                await self.async_set_unique_id(DOMAIN)
-                self._abort_if_unique_id_configured()
-                return self.async_create_entry(
-                    title=NAME,
-                    data={},
-                    subentries=[
-                        _subentry_data_from_user_input(user_input, domain, sources)
-                    ],
-                )
-            errors[CONF_SOURCES] = error
+                if learning_error is not None:
+                    errors[CONF_LEARNING_ENABLED] = learning_error
+                else:
+                    await self.async_set_unique_id(DOMAIN)
+                    self._abort_if_unique_id_configured()
+                    return self.async_create_entry(
+                        title=NAME,
+                        data={},
+                        subentries=[
+                            _subentry_data_from_user_input(user_input, domain, sources)
+                        ],
+                    )
+            else:
+                errors[CONF_SOURCES] = error
 
         return self.async_show_form(
             step_id="user",
@@ -109,14 +115,21 @@ class EntityFailoverSubentryFlow(config_entries.ConfigSubentryFlow):
             sources = normalize_sources(user_input[CONF_SOURCES])
             domain = entity_domain(sources[0]) if sources else ""
             error = _validate_sources(self.hass, domain, sources, self._entry_id)
+            learning_error = _validate_learning(user_input, domain)
             if error is None:
-                subentry = _subentry_data_from_user_input(user_input, domain, sources)
-                return self.async_create_entry(
-                    title=subentry["title"],
-                    data=subentry["data"],
-                    unique_id=subentry["unique_id"],
-                )
-            errors[CONF_SOURCES] = error
+                if learning_error is not None:
+                    errors[CONF_LEARNING_ENABLED] = learning_error
+                else:
+                    subentry = _subentry_data_from_user_input(
+                        user_input, domain, sources
+                    )
+                    return self.async_create_entry(
+                        title=subentry["title"],
+                        data=subentry["data"],
+                        unique_id=subentry["unique_id"],
+                    )
+            else:
+                errors[CONF_SOURCES] = error
 
         return self.async_show_form(
             step_id="user",
@@ -144,18 +157,44 @@ class EntityFailoverSubentryFlow(config_entries.ConfigSubentryFlow):
                 self._entry_id,
                 subentry.subentry_id,
             )
+            learning_error = _validate_learning(user_input, domain)
             if error is None:
-                entry = self._get_entry()
-                changed = self.hass.config_entries.async_update_subentry(
-                    entry=entry,
-                    subentry=subentry,
-                    title=str(user_input[CONF_NAME]),
-                    data=_failover_data_from_user_input(user_input, domain, sources),
-                )
-                if changed:
-                    self.hass.config_entries.async_schedule_reload(entry.entry_id)
-                return self.async_abort(reason="reconfigure_successful")
-            errors[CONF_SOURCES] = error
+                if learning_error is not None:
+                    errors[CONF_LEARNING_ENABLED] = learning_error
+                else:
+                    entry = self._get_entry()
+                    learning_was_enabled = bool(
+                        subentry.data.get(
+                            CONF_LEARNING_ENABLED,
+                            DEFAULT_LEARNING_ENABLED,
+                        )
+                    )
+                    learning_is_enabled = bool(
+                        user_input.get(
+                            CONF_LEARNING_ENABLED,
+                            DEFAULT_LEARNING_ENABLED,
+                        )
+                    )
+                    if list(subentry.data.get(CONF_SOURCES, [])) != sources or (
+                        learning_is_enabled and not learning_was_enabled
+                    ):
+                        await LearningStore(
+                            self.hass,
+                            subentry.unique_id or subentry.subentry_id,
+                        ).async_remove()
+                    changed = self.hass.config_entries.async_update_subentry(
+                        entry=entry,
+                        subentry=subentry,
+                        title=str(user_input[CONF_NAME]),
+                        data=_failover_data_from_user_input(
+                            user_input, domain, sources
+                        ),
+                    )
+                    if changed:
+                        self.hass.config_entries.async_schedule_reload(entry.entry_id)
+                    return self.async_abort(reason="reconfigure_successful")
+            else:
+                errors[CONF_SOURCES] = error
 
         return self.async_show_form(
             step_id="reconfigure",
@@ -220,16 +259,7 @@ def _general_schema_fields(
     """Return general settings schema fields."""
 
     defaults = defaults or {}
-    return {
-        vol.Required(
-            CONF_SELECTION_POLICY,
-            default=defaults.get(CONF_SELECTION_POLICY, DEFAULT_SELECTION_POLICY),
-        ): selector.SelectSelector(
-            selector.SelectSelectorConfig(
-                options=SELECTION_POLICIES,
-                translation_key=CONF_SELECTION_POLICY,
-            )
-        ),
+    fields: dict[Any, Any] = {
         vol.Required(
             CONF_RECOVERY_STABILITY,
             default=defaults.get(CONF_RECOVERY_STABILITY, DEFAULT_RECOVERY_STABILITY),
@@ -259,6 +289,23 @@ def _general_schema_fields(
             default=defaults.get(CONF_HIDE_SOURCES, DEFAULT_HIDE_SOURCES),
         ): selector.BooleanSelector(),
     }
+    sources = list(defaults.get(CONF_SOURCES, []))
+    domain = entity_domain(sources[0]) if sources else None
+    if (
+        domain is None
+        or domain in COMMANDABLE_DOMAINS
+        or defaults.get(CONF_LEARNING_ENABLED)
+    ):
+        fields[
+            vol.Required(
+                CONF_LEARNING_ENABLED,
+                default=defaults.get(
+                    CONF_LEARNING_ENABLED,
+                    DEFAULT_LEARNING_ENABLED,
+                ),
+            )
+        ] = selector.BooleanSelector()
+    return fields
 
 
 def _advanced_schema_fields(
@@ -388,10 +435,21 @@ def _failover_data_from_user_input(
         ),
         CONF_HIDE_SOURCES: user_input.get(CONF_HIDE_SOURCES, DEFAULT_HIDE_SOURCES),
         CONF_REPAIRS_DELAY: advanced.get(CONF_REPAIRS_DELAY, DEFAULT_REPAIRS_DELAY),
-        CONF_SELECTION_POLICY: user_input.get(
-            CONF_SELECTION_POLICY, DEFAULT_SELECTION_POLICY
+        CONF_LEARNING_ENABLED: user_input.get(
+            CONF_LEARNING_ENABLED, DEFAULT_LEARNING_ENABLED
         ),
     }
+
+
+def _validate_learning(
+    user_input: Mapping[str, Any],
+    domain: str,
+) -> str | None:
+    """Validate that latency learning is supported by the selected domain."""
+
+    if user_input.get(CONF_LEARNING_ENABLED) and domain not in COMMANDABLE_DOMAINS:
+        return "learning_not_supported"
+    return None
 
 
 def _validate_sources(  # noqa: PLR0911

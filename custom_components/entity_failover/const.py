@@ -17,7 +17,7 @@ CONF_RECOVERY_STABILITY: Final = "recovery_stability"
 CONF_FEATURE_POLICY: Final = "feature_policy"
 CONF_HIDE_SOURCES: Final = "hide_sources"
 CONF_REPAIRS_DELAY: Final = "repairs_delay"
-CONF_SELECTION_POLICY: Final = "selection_policy"
+CONF_LEARNING_ENABLED: Final = "learning_enabled"
 
 DEFAULT_COMMAND_VALIDATION: Final = "service_call"
 DEFAULT_CONFIRMATION_TIMEOUT: Final = 10.0
@@ -26,7 +26,8 @@ DEFAULT_RECOVERY_STABILITY: Final = 30.0
 DEFAULT_FEATURE_POLICY: Final = "intersection"
 DEFAULT_HIDE_SOURCES: Final = False
 DEFAULT_REPAIRS_DELAY: Final = 0.0
-DEFAULT_SELECTION_POLICY: Final = "static_priority"
+DEFAULT_LEARNING_ENABLED: Final = False
+LEARNING_SAMPLE_COUNT: Final = 3
 
 ATTR_ACTIVE_SOURCE: Final = "active_source"
 ATTR_STATE_SOURCE: Final = "state_source"
@@ -46,8 +47,6 @@ SUBENTRY_TYPE_FAILOVER: Final = "failover"
 
 COMMAND_VALIDATION_MODES: Final = ["service_call", "state_confirmation"]
 FEATURE_POLICIES: Final = ["intersection", "active_source"]
-SELECTION_POLICIES: Final = ["static_priority", "lowest_latency"]
-
 COMMANDABLE_DOMAINS: Final = [
     "alarm_control_panel",
     "button",
