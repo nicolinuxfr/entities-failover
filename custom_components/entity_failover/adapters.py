@@ -286,7 +286,10 @@ ADAPTERS: dict[str, DomainAdapter] = {
             "async_stop_cover_tilt": "stop_cover_tilt",
             "async_set_cover_tilt_position": "set_cover_tilt_position",
         },
-        compatibility_attributes=("supported_features", "device_class"),
+        # Cover capabilities are intentionally allowed to differ. The failover
+        # entity exposes either their intersection or the active source's
+        # features according to the configured feature policy.
+        compatibility_attributes=("device_class",),
         passthrough_attributes=(
             "current_position",
             "current_tilt_position",

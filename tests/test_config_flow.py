@@ -89,6 +89,32 @@ async def test_validate_allows_lights_with_different_color_modes(hass) -> None:
     )
 
 
+@pytest.mark.asyncio
+async def test_validate_allows_covers_with_different_supported_features(hass) -> None:
+    """Cover sources may expose different command capabilities."""
+
+    hass.states.async_set(
+        "cover.somfy",
+        "closed",
+        {"device_class": "shutter", "supported_features": 15},
+    )
+    hass.states.async_set(
+        "cover.homekit",
+        "closed",
+        {"device_class": "shutter", "supported_features": 11},
+    )
+
+    assert (
+        _validate_sources(
+            hass,
+            "cover",
+            ["cover.somfy", "cover.homekit"],
+            None,
+        )
+        is None
+    )
+
+
 def test_source_selectors_default_to_empty_lists() -> None:
     """Multiple entity selectors must never receive None as a default."""
 
