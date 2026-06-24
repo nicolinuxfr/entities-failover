@@ -36,6 +36,7 @@ def test_manifest_has_hacs_required_keys() -> None:
     } <= set(manifest)
     assert manifest["domain"] == "entity_failover"
     assert manifest["config_flow"] is True
+    assert manifest["single_config_entry"] is True
     assert manifest["integration_type"] == "service"
     assert manifest["iot_class"] == "calculated"
     assert manifest["documentation"] == REPOSITORY_URL
