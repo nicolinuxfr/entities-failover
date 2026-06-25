@@ -31,7 +31,7 @@ class FailoverActiveSourceSensor(FailoverEntityMixin, SensorEntity):
     def __init__(self, manager: FailoverManager) -> None:
         """Initialize the sensor."""
 
-        super().__init__(manager, suffix="source")
+        super().__init__(manager, suffix="source", entity_domain="sensor")
 
     @property
     def available(self) -> bool:
@@ -89,7 +89,11 @@ class FailoverActiveBinarySensor(FailoverEntityMixin, BinarySensorEntity):
     def __init__(self, manager: FailoverManager) -> None:
         """Initialize the binary sensor."""
 
-        super().__init__(manager, suffix="failover_active")
+        super().__init__(
+            manager,
+            suffix="failover_active",
+            entity_domain="binary_sensor",
+        )
 
     @property
     def available(self) -> bool:

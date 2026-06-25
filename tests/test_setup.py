@@ -28,6 +28,8 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
 )
+from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -78,12 +80,22 @@ async def test_setup_and_unload_entry(hass) -> None:
     )
     entry.add_to_hass(hass)
     subentry = next(iter(entry.subentries.values()))
+    area = ar.async_get(hass).async_create("Kitchen")
+    device_registry = dr.async_get(hass)
+    device = device_registry.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        config_subentry_id=subentry.subentry_id,
+        identifiers={(DOMAIN, "unique-setup")},
+        name="Kitchen Switch",
+    )
+    device_registry.async_update_device(device.id, area_id=area.id)
 
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     assert "unique-setup" in hass.data[DOMAIN]
     registry_entry = er.async_get(hass).async_get("switch.kitchen_switch")
     assert registry_entry is not None
+    assert er.async_get(hass).async_get("switch.kitchen_kitchen_switch") is None
     assert registry_entry.config_subentry_id == subentry.subentry_id
 
     assert await hass.config_entries.async_unload(entry.entry_id)

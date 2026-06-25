@@ -8,6 +8,7 @@ from typing import Any
 from homeassistant.const import ATTR_ENTITY_ID, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import Context, State, callback
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.util import slugify
 
 from ..const import ATTR_FORWARDED_ENTITY_ID, DOMAIN, NAME
 from ..manager import FailoverManager
@@ -21,11 +22,23 @@ class FailoverEntityMixin:
     _attr_should_poll = False
     _attr_has_entity_name = True
 
-    def __init__(self, manager: FailoverManager, *, suffix: str | None = None) -> None:
+    def __init__(
+        self,
+        manager: FailoverManager,
+        *,
+        suffix: str | None = None,
+        entity_domain: str | None = None,
+    ) -> None:
         """Initialize a failover entity."""
 
         self.manager = manager
         self._suffix = suffix
+        object_id = manager.config.name
+        if suffix is not None:
+            object_id = f"{object_id}_{suffix}"
+        domain = entity_domain or getattr(manager.config, "domain", None)
+        if domain is not None:
+            self.entity_id = f"{domain}.{slugify(object_id)}"
         self._attr_unique_id = (
             f"{manager.config.unique_id}_{suffix}"
             if suffix
