@@ -16,6 +16,14 @@ The integration creates synthetic Home Assistant entities backed by ordered
 source entities. The shared failover engine lives in `manager.py`; domain-specific
 behavior is declared in `adapters.py`.
 
+## Git Synchronization
+
+Before modifying the project, always check whether the current branch has
+pending changes on its remote tracking branch. Fetch the remote state first and,
+if the local branch is behind, pull those changes before editing files. Preserve
+any existing local modifications by stashing them when necessary, then reapply
+them and resolve any conflicts before starting the requested work.
+
 ## Home Assistant Structure
 
 Home Assistant requires a platform file named after each entity domain that an
