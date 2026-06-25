@@ -97,6 +97,7 @@ async def test_setup_and_unload_entry(hass) -> None:
     assert registry_entry is not None
     assert er.async_get(hass).async_get("switch.kitchen_kitchen_switch") is None
     assert registry_entry.config_subentry_id == subentry.subentry_id
+    assert device_registry.async_get(device.id).model == "Failover · Switch"
 
     assert await hass.config_entries.async_unload(entry.entry_id)
 

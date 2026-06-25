@@ -48,10 +48,17 @@ class FailoverEntityMixin:
             self._attr_name = None
         elif not getattr(self, "_attr_translation_key", None):
             self._attr_name = suffix.replace("_", " ").title()
+        config_domain = getattr(manager.config, "domain", None)
+        model = (
+            f"Failover · {config_domain.replace('_', ' ').title()}"
+            if config_domain is not None
+            else None
+        )
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, manager.config.unique_id)},
             name=manager.config.name,
             manufacturer=NAME,
+            model=model,
             entry_type="service",
         )
 
