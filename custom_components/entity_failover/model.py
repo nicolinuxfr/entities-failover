@@ -11,8 +11,6 @@ from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import CONF_NAME
 
 from .const import (
-    CONF_COMMAND_VALIDATION,
-    CONF_CONFIRMATION_TIMEOUT,
     CONF_DOMAIN,
     CONF_FAILURE_COOLDOWN,
     CONF_FEATURE_POLICY,
@@ -21,8 +19,6 @@ from .const import (
     CONF_RECOVERY_STABILITY,
     CONF_REPAIRS_DELAY,
     CONF_SOURCES,
-    DEFAULT_COMMAND_VALIDATION,
-    DEFAULT_CONFIRMATION_TIMEOUT,
     DEFAULT_FAILURE_COOLDOWN,
     DEFAULT_FEATURE_POLICY,
     DEFAULT_HIDE_SOURCES,
@@ -30,13 +26,6 @@ from .const import (
     DEFAULT_RECOVERY_STABILITY,
     DEFAULT_REPAIRS_DELAY,
 )
-
-
-class CommandValidation(StrEnum):
-    """Command validation modes."""
-
-    SERVICE_CALL = "service_call"
-    STATE_CONFIRMATION = "state_confirmation"
 
 
 class FeaturePolicy(StrEnum):
@@ -55,8 +44,6 @@ class FailoverConfig:
     name: str
     domain: str
     sources: tuple[str, ...]
-    command_validation: CommandValidation = CommandValidation.SERVICE_CALL
-    confirmation_timeout: float = DEFAULT_CONFIRMATION_TIMEOUT
     failure_cooldown: float = DEFAULT_FAILURE_COOLDOWN
     recovery_stability: float = DEFAULT_RECOVERY_STABILITY
     feature_policy: FeaturePolicy = FeaturePolicy.INTERSECTION
@@ -82,12 +69,6 @@ class FailoverConfig:
             name=str(data.get(CONF_NAME, subentry.title)),
             domain=str(data[CONF_DOMAIN]),
             sources=sources,
-            command_validation=CommandValidation(
-                data.get(CONF_COMMAND_VALIDATION, DEFAULT_COMMAND_VALIDATION)
-            ),
-            confirmation_timeout=float(
-                data.get(CONF_CONFIRMATION_TIMEOUT, DEFAULT_CONFIRMATION_TIMEOUT)
-            ),
             failure_cooldown=float(
                 data.get(CONF_FAILURE_COOLDOWN, DEFAULT_FAILURE_COOLDOWN)
             ),
@@ -114,8 +95,6 @@ class FailoverConfig:
             "name": self.name,
             "domain": self.domain,
             "sources": list(self.sources),
-            "command_validation": self.command_validation.value,
-            "confirmation_timeout": self.confirmation_timeout,
             "failure_cooldown": self.failure_cooldown,
             "recovery_stability": self.recovery_stability,
             "feature_policy": self.feature_policy.value,

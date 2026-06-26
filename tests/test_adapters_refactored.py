@@ -71,8 +71,6 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.entity_failover.adapters import adapter_for_domain
 from custom_components.entity_failover.const import (
     COMMANDABLE_DOMAINS,
-    CONF_COMMAND_VALIDATION,
-    CONF_CONFIRMATION_TIMEOUT,
     CONF_DOMAIN,
     CONF_FAILURE_COOLDOWN,
     CONF_FEATURE_POLICY,
@@ -161,8 +159,6 @@ def _entry_for_domain(domain: str, attrs: dict[str, object]) -> MockConfigEntry:
                     "name": name,
                     CONF_DOMAIN: domain,
                     CONF_SOURCES: [f"{domain}.one", f"{domain}.two"],
-                    CONF_COMMAND_VALIDATION: "service_call",
-                    CONF_CONFIRMATION_TIMEOUT: 10,
                     CONF_FAILURE_COOLDOWN: 60,
                     CONF_RECOVERY_STABILITY: 30,
                     CONF_FEATURE_POLICY: "intersection",
@@ -452,8 +448,6 @@ async def test_number_state_confirmation(hass: HomeAssistant) -> None:
                         "name": "Test Number",
                         CONF_DOMAIN: "number",
                         CONF_SOURCES: ["number.one", "number.two"],
-                        CONF_COMMAND_VALIDATION: "state_confirmation",
-                        CONF_CONFIRMATION_TIMEOUT: 2,
                         CONF_FAILURE_COOLDOWN: 60,
                         CONF_RECOVERY_STABILITY: 30,
                         CONF_FEATURE_POLICY: "intersection",

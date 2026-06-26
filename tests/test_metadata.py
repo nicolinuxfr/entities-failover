@@ -16,8 +16,6 @@ PYPROJECT = ROOT / "pyproject.toml"
 REPOSITORY_URL = "https://github.com/nicolinuxfr/entities-failover"
 ADVANCED_FIELDS = {
     "feature_policy",
-    "command_validation",
-    "confirmation_timeout",
     "repairs_delay",
 }
 

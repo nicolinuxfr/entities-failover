@@ -15,10 +15,7 @@ from homeassistant.helpers import selector
 
 from .adapters import adapter_for_domain
 from .const import (
-    COMMAND_VALIDATION_MODES,
     COMMANDABLE_DOMAINS,
-    CONF_COMMAND_VALIDATION,
-    CONF_CONFIRMATION_TIMEOUT,
     CONF_DOMAIN,
     CONF_FAILURE_COOLDOWN,
     CONF_FEATURE_POLICY,
@@ -27,8 +24,6 @@ from .const import (
     CONF_RECOVERY_STABILITY,
     CONF_REPAIRS_DELAY,
     CONF_SOURCES,
-    DEFAULT_COMMAND_VALIDATION,
-    DEFAULT_CONFIRMATION_TIMEOUT,
     DEFAULT_FAILURE_COOLDOWN,
     DEFAULT_FEATURE_POLICY,
     DEFAULT_HIDE_SOURCES,
@@ -50,7 +45,7 @@ ADVANCED_SECTION = "advanced"
 class EntityFailoverConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle an Entity Failover config flow."""
 
-    VERSION = 2
+    VERSION = 3
 
     @classmethod
     @callback
@@ -325,29 +320,6 @@ def _advanced_schema_fields(
             )
         ),
         vol.Required(
-            CONF_COMMAND_VALIDATION,
-            default=defaults.get(CONF_COMMAND_VALIDATION, DEFAULT_COMMAND_VALIDATION),
-        ): selector.SelectSelector(
-            selector.SelectSelectorConfig(
-                options=COMMAND_VALIDATION_MODES,
-                translation_key=CONF_COMMAND_VALIDATION,
-            )
-        ),
-        vol.Required(
-            CONF_CONFIRMATION_TIMEOUT,
-            default=defaults.get(
-                CONF_CONFIRMATION_TIMEOUT, DEFAULT_CONFIRMATION_TIMEOUT
-            ),
-        ): selector.NumberSelector(
-            selector.NumberSelectorConfig(
-                min=1,
-                max=120,
-                step=1,
-                mode=selector.NumberSelectorMode.BOX,
-                unit_of_measurement="s",
-            )
-        ),
-        vol.Required(
             CONF_REPAIRS_DELAY,
             default=defaults.get(CONF_REPAIRS_DELAY, DEFAULT_REPAIRS_DELAY),
         ): selector.NumberSelector(
@@ -371,12 +343,6 @@ def _advanced_defaults(defaults: Mapping[str, Any] | None) -> dict[str, Any]:
         defaults = {**defaults, **section_defaults}
     return {
         CONF_FEATURE_POLICY: defaults.get(CONF_FEATURE_POLICY, DEFAULT_FEATURE_POLICY),
-        CONF_COMMAND_VALIDATION: defaults.get(
-            CONF_COMMAND_VALIDATION, DEFAULT_COMMAND_VALIDATION
-        ),
-        CONF_CONFIRMATION_TIMEOUT: defaults.get(
-            CONF_CONFIRMATION_TIMEOUT, DEFAULT_CONFIRMATION_TIMEOUT
-        ),
         CONF_REPAIRS_DELAY: defaults.get(CONF_REPAIRS_DELAY, DEFAULT_REPAIRS_DELAY),
     }
 
@@ -417,12 +383,6 @@ def _failover_data_from_user_input(
         CONF_NAME: str(user_input[CONF_NAME]),
         CONF_DOMAIN: domain,
         CONF_SOURCES: sources,
-        CONF_COMMAND_VALIDATION: advanced.get(
-            CONF_COMMAND_VALIDATION, DEFAULT_COMMAND_VALIDATION
-        ),
-        CONF_CONFIRMATION_TIMEOUT: advanced.get(
-            CONF_CONFIRMATION_TIMEOUT, DEFAULT_CONFIRMATION_TIMEOUT
-        ),
         CONF_FAILURE_COOLDOWN: user_input.get(
             CONF_FAILURE_COOLDOWN, DEFAULT_FAILURE_COOLDOWN
         ),

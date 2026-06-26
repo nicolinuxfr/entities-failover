@@ -13,8 +13,6 @@ from custom_components.entity_failover.config_flow import (
     _validate_sources,
 )
 from custom_components.entity_failover.const import (
-    CONF_COMMAND_VALIDATION,
-    CONF_CONFIRMATION_TIMEOUT,
     CONF_DOMAIN,
     CONF_FAILURE_COOLDOWN,
     CONF_FEATURE_POLICY,
@@ -154,14 +152,8 @@ def test_advanced_selectors_use_translatable_labels() -> None:
 
     section = _user_schema().schema[ADVANCED_SECTION]
     feature_policy = section.schema.schema[CONF_FEATURE_POLICY]
-    command_validation = section.schema.schema[CONF_COMMAND_VALIDATION]
 
     assert feature_policy.config["translation_key"] == CONF_FEATURE_POLICY
-    assert command_validation.config["translation_key"] == CONF_COMMAND_VALIDATION
-    assert command_validation.config["options"] == [
-        "service_call",
-        "state_confirmation",
-    ]
 
 
 @pytest.mark.asyncio
@@ -186,8 +178,6 @@ async def test_config_flow_creates_entry(hass) -> None:
             CONF_FAILURE_COOLDOWN: 60,
             ADVANCED_SECTION: {
                 CONF_FEATURE_POLICY: "intersection",
-                CONF_COMMAND_VALIDATION: "service_call",
-                CONF_CONFIRMATION_TIMEOUT: 10,
                 CONF_REPAIRS_DELAY: 0,
             },
         },
@@ -204,8 +194,6 @@ async def test_config_flow_creates_entry(hass) -> None:
         "name",
         CONF_DOMAIN,
         CONF_SOURCES,
-        CONF_COMMAND_VALIDATION,
-        CONF_CONFIRMATION_TIMEOUT,
         CONF_FAILURE_COOLDOWN,
         CONF_RECOVERY_STABILITY,
         CONF_FEATURE_POLICY,
@@ -238,8 +226,6 @@ async def test_config_flow_manager_creates_entry_from_single_form(hass) -> None:
             CONF_FAILURE_COOLDOWN: 60,
             ADVANCED_SECTION: {
                 CONF_FEATURE_POLICY: "intersection",
-                CONF_COMMAND_VALIDATION: "service_call",
-                CONF_CONFIRMATION_TIMEOUT: 10,
                 CONF_REPAIRS_DELAY: 0,
             },
         },
@@ -288,8 +274,6 @@ async def test_subentry_flow_adds_failover_from_integration_page(hass) -> None:
             CONF_HIDE_SOURCES: True,
             ADVANCED_SECTION: {
                 CONF_FEATURE_POLICY: "active_source",
-                CONF_COMMAND_VALIDATION: "service_call",
-                CONF_CONFIRMATION_TIMEOUT: 5,
                 CONF_REPAIRS_DELAY: 1200,
             },
         },
@@ -300,7 +284,6 @@ async def test_subentry_flow_adds_failover_from_integration_page(hass) -> None:
     assert subentry.title == "Kitchen Switch"
     assert result["data"][CONF_RECOVERY_STABILITY] == 15
     assert result["data"][CONF_HIDE_SOURCES] is True
-    assert result["data"][CONF_COMMAND_VALIDATION] == "service_call"
     assert result["data"][CONF_REPAIRS_DELAY] == 1200
 
 
@@ -321,8 +304,6 @@ async def test_subentry_flow_reconfigures_failover(hass) -> None:
                     "name": "Kitchen Switch",
                     CONF_DOMAIN: "switch",
                     CONF_SOURCES: ["switch.one", "switch.two"],
-                    CONF_COMMAND_VALIDATION: "service_call",
-                    CONF_CONFIRMATION_TIMEOUT: 10,
                     CONF_FAILURE_COOLDOWN: 60,
                     CONF_RECOVERY_STABILITY: 30,
                     CONF_FEATURE_POLICY: "intersection",
@@ -355,8 +336,6 @@ async def test_subentry_flow_reconfigures_failover(hass) -> None:
             CONF_HIDE_SOURCES: True,
             ADVANCED_SECTION: {
                 CONF_FEATURE_POLICY: "active_source",
-                CONF_COMMAND_VALIDATION: "state_confirmation",
-                CONF_CONFIRMATION_TIMEOUT: 5,
                 CONF_REPAIRS_DELAY: 600,
             },
         },
@@ -390,8 +369,6 @@ async def test_subentry_flow_reorders_sources_with_update_listener(hass) -> None
                     "name": "Living Room Light",
                     CONF_DOMAIN: "light",
                     CONF_SOURCES: ["light.one", "light.two", "light.three"],
-                    CONF_COMMAND_VALIDATION: "service_call",
-                    CONF_CONFIRMATION_TIMEOUT: 10,
                     CONF_FAILURE_COOLDOWN: 60,
                     CONF_RECOVERY_STABILITY: 30,
                     CONF_FEATURE_POLICY: "intersection",
@@ -427,8 +404,6 @@ async def test_subentry_flow_reorders_sources_with_update_listener(hass) -> None
             CONF_FAILURE_COOLDOWN: 60,
             ADVANCED_SECTION: {
                 CONF_FEATURE_POLICY: "intersection",
-                CONF_COMMAND_VALIDATION: "service_call",
-                CONF_CONFIRMATION_TIMEOUT: 10,
                 CONF_REPAIRS_DELAY: DEFAULT_REPAIRS_DELAY,
             },
         },
@@ -462,8 +437,6 @@ async def test_config_flow_supports_order_learning(hass) -> None:
             CONF_FAILURE_COOLDOWN: 60,
             ADVANCED_SECTION: {
                 CONF_FEATURE_POLICY: "intersection",
-                CONF_COMMAND_VALIDATION: "service_call",
-                CONF_CONFIRMATION_TIMEOUT: 10,
                 CONF_REPAIRS_DELAY: 0,
             },
         },
@@ -493,8 +466,6 @@ async def test_config_flow_rejects_learning_for_read_only_domain(hass) -> None:
             CONF_FAILURE_COOLDOWN: 60,
             ADVANCED_SECTION: {
                 CONF_FEATURE_POLICY: "intersection",
-                CONF_COMMAND_VALIDATION: "service_call",
-                CONF_CONFIRMATION_TIMEOUT: 10,
                 CONF_REPAIRS_DELAY: 0,
             },
         },

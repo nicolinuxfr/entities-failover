@@ -21,6 +21,12 @@ from .model import FailoverConfig
 
 type EntityFailoverConfigEntry = ConfigEntry[dict[str, FailoverManager]]
 
+CURRENT_CONFIG_ENTRY_VERSION = 3
+LEGACY_SUBENTRY_KEYS = {
+    "command_validation",
+    "confirmation_timeout",
+}
+
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up integration services."""
@@ -50,6 +56,34 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 vol.Optional(ATTR_ENTITY_ID): str,
             }
         ),
+    )
+    return True
+
+
+async def async_migrate_entry(
+    hass: HomeAssistant,
+    entry: EntityFailoverConfigEntry,
+) -> bool:
+    """Migrate old failover subentry data to the current shape."""
+
+    if entry.version >= CURRENT_CONFIG_ENTRY_VERSION:
+        return True
+
+    for subentry in entry.subentries.values():
+        if subentry.subentry_type != SUBENTRY_TYPE_FAILOVER:
+            continue
+        data = dict(subentry.data)
+        for key in LEGACY_SUBENTRY_KEYS:
+            data.pop(key, None)
+        hass.config_entries.async_update_subentry(
+            entry=entry,
+            subentry=subentry,
+            data=data,
+        )
+
+    hass.config_entries.async_update_entry(
+        entry,
+        version=CURRENT_CONFIG_ENTRY_VERSION,
     )
     return True
 

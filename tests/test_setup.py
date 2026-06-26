@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.fan import (
@@ -33,9 +35,8 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.entity_failover import async_migrate_entry
 from custom_components.entity_failover.const import (
-    CONF_COMMAND_VALIDATION,
-    CONF_CONFIRMATION_TIMEOUT,
     CONF_DOMAIN,
     CONF_FAILURE_COOLDOWN,
     CONF_FEATURE_POLICY,
@@ -46,6 +47,47 @@ from custom_components.entity_failover.const import (
     NAME,
     SUBENTRY_TYPE_FAILOVER,
 )
+
+
+@pytest.mark.asyncio
+async def test_migrate_entry_removes_legacy_command_settings(hass) -> None:
+    """Migration cleans removed command tuning keys from failover subentries."""
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title=NAME,
+        unique_id=DOMAIN,
+        data={},
+        subentries_data=[
+            {
+                "data": {
+                    "name": "Kitchen Switch",
+                    CONF_DOMAIN: "switch",
+                    CONF_SOURCES: ["switch.one", "switch.two"],
+                    "command_validation": "state_confirmation",
+                    "confirmation_timeout": 120,
+                    CONF_FAILURE_COOLDOWN: 60,
+                    CONF_RECOVERY_STABILITY: 30,
+                    CONF_FEATURE_POLICY: "intersection",
+                },
+                "subentry_type": SUBENTRY_TYPE_FAILOVER,
+                "title": "Kitchen Switch",
+                "unique_id": "unique-legacy",
+            }
+        ],
+        version=2,
+    )
+    entry.add_to_hass(hass)
+    subentry = next(iter(entry.subentries.values()))
+
+    assert await async_migrate_entry(hass, entry)
+
+    migrated = entry.subentries[subentry.subentry_id]
+    assert entry.version == 3
+    assert "command_validation" not in migrated.data
+    assert "confirmation_timeout" not in migrated.data
+    assert migrated.data[CONF_DOMAIN] == "switch"
+    assert migrated.data[CONF_SOURCES] == ["switch.one", "switch.two"]
 
 
 @pytest.mark.asyncio
@@ -65,8 +107,6 @@ async def test_setup_and_unload_entry(hass) -> None:
                     "name": "Kitchen Switch",
                     CONF_DOMAIN: "switch",
                     CONF_SOURCES: ["switch.one", "switch.two"],
-                    CONF_COMMAND_VALIDATION: "service_call",
-                    CONF_CONFIRMATION_TIMEOUT: 10,
                     CONF_FAILURE_COOLDOWN: 60,
                     CONF_RECOVERY_STABILITY: 30,
                     CONF_FEATURE_POLICY: "intersection",
@@ -132,8 +172,6 @@ async def test_setup_hides_source_entities_when_configured(hass) -> None:
                     "name": "Kitchen Switch",
                     CONF_DOMAIN: "switch",
                     CONF_SOURCES: ["switch.one", "switch.two"],
-                    CONF_COMMAND_VALIDATION: "service_call",
-                    CONF_CONFIRMATION_TIMEOUT: 10,
                     CONF_FAILURE_COOLDOWN: 60,
                     CONF_RECOVERY_STABILITY: 30,
                     CONF_FEATURE_POLICY: "intersection",
@@ -195,8 +233,6 @@ async def test_setup_keeps_user_hidden_sources_hidden(hass) -> None:
                     "name": "Kitchen Switch",
                     CONF_DOMAIN: "switch",
                     CONF_SOURCES: ["switch.one", "switch.two"],
-                    CONF_COMMAND_VALIDATION: "service_call",
-                    CONF_CONFIRMATION_TIMEOUT: 10,
                     CONF_FAILURE_COOLDOWN: 60,
                     CONF_RECOVERY_STABILITY: 30,
                     CONF_FEATURE_POLICY: "intersection",
@@ -258,8 +294,6 @@ async def test_setup_light_entity_exposes_light_state(hass) -> None:
                     "name": "Living Room Light",
                     CONF_DOMAIN: "light",
                     CONF_SOURCES: ["light.one", "light.two"],
-                    CONF_COMMAND_VALIDATION: "service_call",
-                    CONF_CONFIRMATION_TIMEOUT: 10,
                     CONF_FAILURE_COOLDOWN: 60,
                     CONF_RECOVERY_STABILITY: 30,
                     CONF_FEATURE_POLICY: "intersection",
@@ -342,8 +376,6 @@ async def test_setup_light_entity_keeps_native_light_attributes(hass) -> None:
                     "name": "Bedroom Light",
                     CONF_DOMAIN: "light",
                     CONF_SOURCES: ["light.one", "light.two"],
-                    CONF_COMMAND_VALIDATION: "service_call",
-                    CONF_CONFIRMATION_TIMEOUT: 10,
                     CONF_FAILURE_COOLDOWN: 60,
                     CONF_RECOVERY_STABILITY: 30,
                     CONF_FEATURE_POLICY: "intersection",
@@ -383,8 +415,6 @@ async def test_setup_light_entity_without_available_source(hass) -> None:
                     "name": "Unavailable Light",
                     CONF_DOMAIN: "light",
                     CONF_SOURCES: ["light.one"],
-                    CONF_COMMAND_VALIDATION: "service_call",
-                    CONF_CONFIRMATION_TIMEOUT: 10,
                     CONF_FAILURE_COOLDOWN: 60,
                     CONF_RECOVERY_STABILITY: 30,
                     CONF_FEATURE_POLICY: "intersection",
@@ -467,8 +497,6 @@ async def test_setup_fan_entity_exposes_native_fan_attributes(hass) -> None:
                     "name": "Ceiling Fan",
                     CONF_DOMAIN: "fan",
                     CONF_SOURCES: ["fan.one", "fan.two"],
-                    CONF_COMMAND_VALIDATION: "service_call",
-                    CONF_CONFIRMATION_TIMEOUT: 10,
                     CONF_FAILURE_COOLDOWN: 60,
                     CONF_RECOVERY_STABILITY: 30,
                     CONF_FEATURE_POLICY: "intersection",
@@ -531,8 +559,6 @@ async def test_setup_number_entity_exposes_number_contract(hass) -> None:
                     "name": "Charging Amps",
                     CONF_DOMAIN: "number",
                     CONF_SOURCES: ["number.one", "number.two"],
-                    CONF_COMMAND_VALIDATION: "service_call",
-                    CONF_CONFIRMATION_TIMEOUT: 10,
                     CONF_FAILURE_COOLDOWN: 60,
                     CONF_RECOVERY_STABILITY: 30,
                     CONF_FEATURE_POLICY: "intersection",
@@ -557,9 +583,23 @@ async def test_setup_number_entity_exposes_number_contract(hass) -> None:
     assert state.attributes[ATTR_STEP] == 1
     assert state.attributes[ATTR_MODE] == "slider"
 
-    await hass.services.async_call(
-        "number",
-        "set_value",
-        {ATTR_ENTITY_ID: "number.charging_amps", "value": 20},
-        blocking=True,
+    task = asyncio.create_task(
+        hass.services.async_call(
+            "number",
+            "set_value",
+            {ATTR_ENTITY_ID: "number.charging_amps", "value": 20},
+            blocking=True,
+        )
     )
+    await asyncio.sleep(0)
+    hass.states.async_set(
+        "number.one",
+        "20",
+        {
+            ATTR_MIN: 0,
+            ATTR_MAX: 32,
+            ATTR_STEP: 1,
+            ATTR_MODE: "slider",
+        },
+    )
+    await task

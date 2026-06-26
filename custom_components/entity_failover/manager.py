@@ -40,6 +40,7 @@ from .const import (
     ATTR_PRIORITY_INDEX,
     ATTR_SOURCES_DESYNCHRONIZED,
     ATTR_STATE_SOURCE,
+    COMMAND_CONFIRMATION_TIMEOUT,
     CONF_LEARNING_ENABLED,
     CONF_SOURCES,
     DOMAIN,
@@ -50,7 +51,6 @@ from .helpers import friendly_name, state_available
 from .learning import LearningState, LearningStore
 from .model import (
     CommandResult,
-    CommandValidation,
     FailoverConfig,
     ManagerDiagnostics,
     SourceHealth,
@@ -536,6 +536,7 @@ class FailoverManager:
             attempts += 1
             tried.add(source)
             before = self.hass.states.get(source)
+            expected = self.adapter.expected_result(service, before, data)
             try:
                 _LOGGER.debug(
                     "Entity Failover %s routing %s.%s to %s (attempt %d)",
@@ -551,18 +552,14 @@ class FailoverManager:
                     service,
                     data,
                     context,
-                    blocking=(
-                        self.config.command_validation
-                        == CommandValidation.STATE_CONFIRMATION
-                        or self.config.learning_enabled
-                    ),
+                    blocking=self._should_wait_for_service_completion(expected),
                 )
-                expected = self.adapter.expected_result(service, before, data)
-                if (
-                    self.config.command_validation
-                    == CommandValidation.STATE_CONFIRMATION
-                ):
-                    if not await self._async_confirm(source, expected, data):
+                if self._should_confirm_command(expected):
+                    if not await self._async_confirm(
+                        source,
+                        expected,
+                        data,
+                    ):
                         raise HomeAssistantError(
                             f"{source} did not confirm {self.config.domain}.{service}"
                         )
@@ -627,6 +624,22 @@ class FailoverManager:
         self._notify()
         _LOGGER.error("%s", error)
         raise error
+
+    def _should_wait_for_service_completion(
+        self,
+        expected: ConfirmationRule | object,
+    ) -> bool:
+        """Return whether the underlying HA service call should be blocking."""
+
+        return self._should_confirm_command(expected) or self.config.learning_enabled
+
+    def _should_confirm_command(
+        self,
+        expected: ConfirmationRule | object,
+    ) -> bool:
+        """Return whether a command has enough state signal to verify it."""
+
+        return isinstance(expected, ConfirmationRule)
 
     def _select_command_source(
         self,
@@ -780,6 +793,10 @@ class FailoverManager:
             return True
         if not isinstance(expected, ConfirmationRule):
             return True
+        matched_source = self._source_matching_confirmation(expected, data)
+        if matched_source is not None:
+            self._set_state_source_from_confirmation(source, matched_source)
+            return True
 
         future: asyncio.Future[bool] = self.hass.loop.create_future()
 
@@ -790,6 +807,8 @@ class FailoverManager:
             if self.adapter.confirmation_matches(expected, new_state, data):
                 if isinstance(changed_source, str):
                     self._set_state_source_from_confirmation(source, changed_source)
+                if not future.done():
+                    future.set_result(True)
 
         unsub_state = async_track_state_change_event(
             self.hass, list(self.config.sources), _state_changed
@@ -807,7 +826,7 @@ class FailoverManager:
 
         unsub_timeout = async_call_later(
             self.hass,
-            self.config.confirmation_timeout,
+            COMMAND_CONFIRMATION_TIMEOUT,
             _timeout,
         )
         try:
@@ -846,7 +865,7 @@ class FailoverManager:
         self._pending_confirmation_rule = expected
         self._pending_confirmation_data = dict(data)
         self._pending_confirmation_until = dt_util.utcnow() + timedelta(
-            seconds=self.config.confirmation_timeout
+            seconds=COMMAND_CONFIRMATION_TIMEOUT
         )
 
     def _clear_recent_confirmation(self) -> None:
