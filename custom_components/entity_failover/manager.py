@@ -44,6 +44,7 @@ from .const import (
     CONF_LEARNING_ENABLED,
     CONF_SOURCES,
     DOMAIN,
+    FAILURE_COOLDOWN_MAX_BACKOFF,
     ISSUE_ALL_SOURCES_UNAVAILABLE,
     LEARNING_SAMPLE_COUNT,
 )
@@ -484,6 +485,7 @@ class FailoverManager:
         for source, health in self._health.items():
             health.excluded_until = None
             health.last_error = None
+            health.consecutive_failures = 0
             unsub = self._cooldown_unsubs.pop(source, None)
             if unsub is not None:
                 unsub()
@@ -564,6 +566,7 @@ class FailoverManager:
                             f"{source} did not confirm {self.config.domain}.{service}"
                         )
                 latency = (dt_util.utcnow() - start_time).total_seconds()
+                self._record_source_success(source)
                 await self._async_record_learning_sample(source, latency)
                 self.last_command_result = CommandResult(
                     service=service,
@@ -966,10 +969,10 @@ class FailoverManager:
         """Temporarily exclude a failed source."""
 
         health = self._health[source]
+        health.consecutive_failures += 1
         health.last_error = str(err)
-        health.excluded_until = dt_util.utcnow() + timedelta(
-            seconds=self.config.failure_cooldown
-        )
+        cooldown = self._failure_cooldown_for(health)
+        health.excluded_until = dt_util.utcnow() + timedelta(seconds=cooldown)
         old_unsub = self._cooldown_unsubs.pop(source, None)
         if old_unsub is not None:
             old_unsub()
@@ -989,9 +992,25 @@ class FailoverManager:
 
         self._cooldown_unsubs[source] = async_call_later(
             self.hass,
-            self.config.failure_cooldown,
+            cooldown,
             _clear,
         )
+
+    def _record_source_success(self, source: str) -> None:
+        """Clear consecutive command failures after a source works again."""
+
+        health = self._health[source]
+        health.consecutive_failures = 0
+        health.last_error = None
+
+    def _failure_cooldown_for(self, health: SourceHealth) -> float:
+        """Return the temporary exclusion duration for a failed source."""
+
+        multiplier = min(
+            max(1, health.consecutive_failures),
+            FAILURE_COOLDOWN_MAX_BACKOFF,
+        )
+        return self.config.failure_cooldown * multiplier
 
     def _handle_repairs_state(self) -> None:
         """Create or delete the all-sources-unavailable Repairs issue."""

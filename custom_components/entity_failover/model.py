@@ -113,6 +113,7 @@ class SourceHealth:
     available: bool = False
     excluded_until: datetime | None = None
     last_error: str | None = None
+    consecutive_failures: int = 0
 
     @property
     def excluded(self) -> bool:
@@ -131,6 +132,7 @@ class SourceHealth:
             if self.excluded_until
             else None,
             "last_error": self.last_error,
+            "consecutive_failures": self.consecutive_failures,
         }
 
 

@@ -118,6 +118,57 @@ async def test_command_retries_on_backup(hass) -> None:
 
 
 @pytest.mark.asyncio
+async def test_repeated_command_failures_back_off_source_recovery(hass) -> None:
+    """Repeated command failures keep an unstable source excluded for longer."""
+
+    calls: list[str] = []
+
+    async def _turn_on(call):
+        entity_id = call.data["entity_id"]
+        calls.append(entity_id)
+        if entity_id == "switch.primary":
+            raise RuntimeError("boom")
+        hass.states.async_set(entity_id, "on")
+
+    hass.services.async_register("switch", "turn_on", _turn_on)
+    hass.states.async_set("switch.primary", "off")
+    hass.states.async_set("switch.backup", "off")
+    manager = FailoverManager(
+        hass,
+        _config(failure_cooldown=10, recovery_stability=1),
+    )
+    await manager.async_start()
+
+    await manager.async_call_service("turn_on")
+    await hass.async_block_till_done()
+
+    first_excluded_until = manager._health["switch.primary"].excluded_until
+    assert first_excluded_until is not None
+    assert manager._health["switch.primary"].consecutive_failures == 1
+
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=11))
+    await hass.async_block_till_done()
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=2))
+    await hass.async_block_till_done()
+    assert manager.active_source == "switch.primary"
+
+    await manager.async_call_service("turn_on")
+    await hass.async_block_till_done()
+
+    second_excluded_until = manager._health["switch.primary"].excluded_until
+    assert second_excluded_until is not None
+    assert manager._health["switch.primary"].consecutive_failures == 2
+    assert second_excluded_until - dt_util.utcnow() > timedelta(seconds=15)
+    assert calls == [
+        "switch.primary",
+        "switch.backup",
+        "switch.primary",
+        "switch.backup",
+    ]
+    await manager.async_unload()
+
+
+@pytest.mark.asyncio
 async def test_command_logs_routed_source(hass, caplog) -> None:
     """Successful commands log the source that received the service call."""
 
