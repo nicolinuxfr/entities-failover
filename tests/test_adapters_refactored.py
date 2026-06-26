@@ -168,7 +168,7 @@ def _entry_for_domain(domain: str, attrs: dict[str, object]) -> MockConfigEntry:
                 "unique_id": f"unique-{domain}",
             }
         ],
-        version=2,
+        version=3,
     )
 
 
@@ -457,7 +457,7 @@ async def test_number_state_confirmation(hass: HomeAssistant) -> None:
                     "unique_id": "unique-test-number",
                 }
             ],
-            version=2,
+            version=3,
         )
         entry.add_to_hass(hass)
 

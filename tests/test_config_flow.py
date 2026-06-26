@@ -252,7 +252,7 @@ async def test_subentry_flow_adds_failover_from_integration_page(hass) -> None:
         title=NAME,
         unique_id=DOMAIN,
         data={},
-        version=2,
+        version=3,
     )
     entry.add_to_hass(hass)
 
@@ -314,7 +314,7 @@ async def test_subentry_flow_reconfigures_failover(hass) -> None:
                 "unique_id": "unique-subentry",
             }
         ],
-        version=2,
+        version=3,
     )
     entry.add_to_hass(hass)
     subentry = next(iter(entry.subentries.values()))
@@ -379,7 +379,7 @@ async def test_subentry_flow_reorders_sources_with_update_listener(hass) -> None
                 "unique_id": "unique-light-subentry",
             }
         ],
-        version=2,
+        version=3,
     )
     entry.add_to_hass(hass)
     subentry = next(iter(entry.subentries.values()))

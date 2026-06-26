@@ -35,7 +35,6 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.entity_failover import async_migrate_entry
 from custom_components.entity_failover.const import (
     CONF_DOMAIN,
     CONF_FAILURE_COOLDOWN,
@@ -47,47 +46,6 @@ from custom_components.entity_failover.const import (
     NAME,
     SUBENTRY_TYPE_FAILOVER,
 )
-
-
-@pytest.mark.asyncio
-async def test_migrate_entry_removes_legacy_command_settings(hass) -> None:
-    """Migration cleans removed command tuning keys from failover subentries."""
-
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        title=NAME,
-        unique_id=DOMAIN,
-        data={},
-        subentries_data=[
-            {
-                "data": {
-                    "name": "Kitchen Switch",
-                    CONF_DOMAIN: "switch",
-                    CONF_SOURCES: ["switch.one", "switch.two"],
-                    "command_validation": "state_confirmation",
-                    "confirmation_timeout": 120,
-                    CONF_FAILURE_COOLDOWN: 60,
-                    CONF_RECOVERY_STABILITY: 30,
-                    CONF_FEATURE_POLICY: "intersection",
-                },
-                "subentry_type": SUBENTRY_TYPE_FAILOVER,
-                "title": "Kitchen Switch",
-                "unique_id": "unique-legacy",
-            }
-        ],
-        version=2,
-    )
-    entry.add_to_hass(hass)
-    subentry = next(iter(entry.subentries.values()))
-
-    assert await async_migrate_entry(hass, entry)
-
-    migrated = entry.subentries[subentry.subentry_id]
-    assert entry.version == 3
-    assert "command_validation" not in migrated.data
-    assert "confirmation_timeout" not in migrated.data
-    assert migrated.data[CONF_DOMAIN] == "switch"
-    assert migrated.data[CONF_SOURCES] == ["switch.one", "switch.two"]
 
 
 @pytest.mark.asyncio
@@ -116,7 +74,7 @@ async def test_setup_and_unload_entry(hass) -> None:
                 "unique_id": "unique-setup",
             }
         ],
-        version=2,
+        version=3,
     )
     entry.add_to_hass(hass)
     subentry = next(iter(entry.subentries.values()))
@@ -182,7 +140,7 @@ async def test_setup_hides_source_entities_when_configured(hass) -> None:
                 "unique_id": "unique-hide-sources",
             }
         ],
-        version=2,
+        version=3,
     )
     entry.add_to_hass(hass)
 
@@ -243,7 +201,7 @@ async def test_setup_keeps_user_hidden_sources_hidden(hass) -> None:
                 "unique_id": "unique-preserve-user-hidden-source",
             }
         ],
-        version=2,
+        version=3,
     )
     entry.add_to_hass(hass)
 
@@ -303,7 +261,7 @@ async def test_setup_light_entity_exposes_light_state(hass) -> None:
                 "unique_id": "unique-light-setup",
             }
         ],
-        version=2,
+        version=3,
     )
     entry.add_to_hass(hass)
 
@@ -385,7 +343,7 @@ async def test_setup_light_entity_keeps_native_light_attributes(hass) -> None:
                 "unique_id": "unique-light-native-attrs",
             }
         ],
-        version=2,
+        version=3,
     )
     entry.add_to_hass(hass)
 
@@ -424,7 +382,7 @@ async def test_setup_light_entity_without_available_source(hass) -> None:
                 "unique_id": "unique-light-unavailable",
             }
         ],
-        version=2,
+        version=3,
     )
     entry.add_to_hass(hass)
 
@@ -506,7 +464,7 @@ async def test_setup_fan_entity_exposes_native_fan_attributes(hass) -> None:
                 "unique_id": "unique-fan-native-attrs",
             }
         ],
-        version=2,
+        version=3,
     )
     entry.add_to_hass(hass)
 
@@ -568,7 +526,7 @@ async def test_setup_number_entity_exposes_number_contract(hass) -> None:
                 "unique_id": "unique-number-setup",
             }
         ],
-        version=2,
+        version=3,
     )
     entry.add_to_hass(hass)
 
