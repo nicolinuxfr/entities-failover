@@ -239,16 +239,14 @@ async def test_successful_command_can_mirror_confirming_state_source(hass) -> No
 
 
 @pytest.mark.asyncio
-async def test_service_call_validation_retries_when_state_never_confirms(hass) -> None:
-    """Confirmable services retry when an accepted call produces no target state."""
+async def test_confirmation_timeout_does_not_retry_accepted_service(hass) -> None:
+    """Accepted service calls are not retried when state confirmation is late."""
 
     calls: list[str] = []
 
     async def _turn_on(call):
         entity_id = call.data["entity_id"]
         calls.append(entity_id)
-        if entity_id == "switch.backup":
-            hass.states.async_set(entity_id, "on")
 
     hass.services.async_register("switch", "turn_on", _turn_on)
     hass.states.async_set("switch.primary", "off")
@@ -269,12 +267,18 @@ async def test_service_call_validation_retries_when_state_never_confirms(hass) -
     await hass.async_block_till_done()
     await task
 
-    assert calls == ["switch.primary", "switch.backup"]
-    assert manager.active_source == "switch.backup"
-    assert "switch.primary" in manager.excluded_sources
+    assert calls == ["switch.primary"]
+    assert manager.active_source == "switch.primary"
+    assert not manager.excluded_sources
     assert manager.last_command_result is not None
     assert manager.last_command_result.success
-    assert manager.last_command_result.source == "switch.backup"
+    assert manager.last_command_result.source == "switch.primary"
+
+    hass.states.async_set("switch.primary", "on")
+    await hass.async_block_till_done()
+
+    assert manager.state_source is None
+    assert manager.active_state == hass.states.get("switch.primary")
     await manager.async_unload()
 
 

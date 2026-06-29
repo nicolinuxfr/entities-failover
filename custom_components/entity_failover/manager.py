@@ -556,15 +556,13 @@ class FailoverManager:
                     context,
                     blocking=self._should_wait_for_service_completion(expected),
                 )
+                confirmed = True
                 if self._should_confirm_command(expected):
-                    if not await self._async_confirm(
+                    confirmed = await self._async_confirm(
                         source,
                         expected,
                         data,
-                    ):
-                        raise HomeAssistantError(
-                            f"{source} did not confirm {self.config.domain}.{service}"
-                        )
+                    )
                 latency = (dt_util.utcnow() - start_time).total_seconds()
                 self._record_source_success(source)
                 await self._async_record_learning_sample(source, latency)
@@ -580,6 +578,15 @@ class FailoverManager:
                     source,
                     expected,
                 )
+                if not confirmed:
+                    _LOGGER.debug(
+                        "Entity Failover %s did not observe confirmation for "
+                        "%s.%s on %s before timeout",
+                        self.config.name,
+                        self.config.domain,
+                        service,
+                        source,
+                    )
                 old_active = self.active_source
                 self._refresh_health()
                 self._select_after_state_change(old_active)
